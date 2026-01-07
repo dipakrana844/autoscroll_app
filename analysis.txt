@@ -1,0 +1,10 @@
+Analyzing autoscroll_app...                                     
+
+   info - The import of 'package:flutter_background_service_android/flutter_background_service_android.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter_background_service/flutter_background_service.dart' - lib\main.dart:9:8 - unnecessary_import
+   info - The imported package 'flutter_background_service_android' isn't a dependency of the importing package - lib\main.dart:9:8 - depend_on_referenced_packages
+   info - Don't invoke 'print' in production code - lib\services\scroll_service.dart:14:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\scroll_service.dart:24:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\scroll_service.dart:33:7 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\ui\main_screen.dart:261:40 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\overlay_screen.dart:62:31 - deprecated_member_use
+

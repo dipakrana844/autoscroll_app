@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Enables auto-scrolling for Reels by performing swipe gestures.</string>
+</resources>
