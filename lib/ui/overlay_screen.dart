@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 class OverlayScreen extends StatefulWidget {
   const OverlayScreen({super.key});
@@ -11,12 +15,58 @@ class OverlayScreen extends StatefulWidget {
 
 class _OverlayScreenState extends State<OverlayScreen> {
   int _countdown = 10;
+  int _maxDuration = 10;
   bool _isScrolling = false;
   bool _isPlaying = false;
   Timer? _timer;
+  SharedPreferences? _prefs;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+    FlutterOverlayWindow.overlayListener.listen((event) {
+      if (event != null && event is Map) {
+        if (event.containsKey('scrollDuration')) {
+          final newDuration = event['scrollDuration'] as int;
+          setState(() {
+            _maxDuration = newDuration;
+            if (!_isPlaying && !_isScrolling) {
+              _countdown = _maxDuration;
+            }
+          });
+        }
+      }
+    });
+  }
+
+  Future<void> _loadSettings() async {
+    _prefs = await SharedPreferences.getInstance();
+    _refreshDuration();
+  }
+
+  void _refreshDuration() {
+    if (_prefs != null) {
+      setState(() {
+        _maxDuration =
+            _prefs!.getInt(AppConstants.keyScrollDuration) ??
+            AppConstants.defaultDuration;
+        // If the timer isn't running, update the current display
+        if (!_isPlaying && !_isScrolling) {
+          _countdown = _maxDuration;
+        }
+      });
+    }
+  }
 
   void _startTimer() {
-    setState(() => _isPlaying = true);
+    // Refresh duration one last time before starting to be sure
+    _refreshDuration();
+    setState(() {
+      _isPlaying = true;
+      _countdown = _maxDuration;
+    });
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_countdown > 1) {
         setState(() => _countdown--);
@@ -30,21 +80,31 @@ class _OverlayScreenState extends State<OverlayScreen> {
     _timer?.cancel();
     setState(() {
       _isPlaying = false;
+      _countdown = _maxDuration;
     });
   }
 
   Future<void> _triggerScroll() async {
-    setState(() => _isScrolling = true);
-    // Use background service as a bridge to native side
-    FlutterBackgroundService().invoke('trigger_scroll');
-    debugPrint("Overlay: Sent trigger_scroll to background service");
+    if (_isScrolling) return;
 
-    // Provide visual feedback for result
-    await Future.delayed(const Duration(milliseconds: 300));
+    setState(() => _isScrolling = true);
+
+    try {
+      // Revert optimization: Must use background service bridge because
+      // the Overlay runs in a separate engine that lacks the custom plugin.
+      FlutterBackgroundService().invoke('trigger_scroll');
+      debugPrint("Overlay: Triggered scroll via Background Service bridge");
+    } catch (e) {
+      debugPrint("Overlay Scroll Error: $e");
+    }
+
+    await Future.delayed(const Duration(milliseconds: 400));
 
     if (mounted) {
+      // Always re-read duration after a scroll finishes in case user changed it
+      _refreshDuration();
       setState(() {
-        _countdown = 10;
+        _countdown = _maxDuration;
         _isScrolling = false;
       });
     }

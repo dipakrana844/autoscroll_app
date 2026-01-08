@@ -222,7 +222,10 @@ class _MainScreenState extends ConsumerState<MainScreen>
               divisions: 11,
               label: '${settings.scrollDuration}s',
               onChanged: (value) {
-                notifier.setScrollDuration(value.toInt());
+                notifier.updateScrollDuration(value.toInt());
+              },
+              onChangeEnd: (value) {
+                notifier.saveScrollDuration(value.toInt());
               },
             ),
           ],

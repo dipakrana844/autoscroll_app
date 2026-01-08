@@ -4,39 +4,29 @@
 [![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**AutoScroll Pro** is a high-performance Flutter application designed to automate scrolling on popular short-form video platforms like Reels, TikTok, and YouTube Shorts. It provides a seamless, hands-free viewing experience through a smart floating overlay.
+**AutoScroll Pro** is the ultimate hands-free utility for modern short-form video consumption. Whether you're multitasking, eating, or just relaxing, AutoScroll Pro takes control of your feed, automatically scrolling to the next video so you don't have to lift a finger.
+
+Designed for **Instagram Reels**, **TikTok**, **YouTube Shorts**, and more.
 
 ---
 
-## ✨ Key Features
+## ✨ Features
 
-- 📱 **Smart Floating Overlay**: Draggable control panel that floats over other apps.
-- ⏱️ **Auto-Countdown**: Configurable timer that automatically swipes to the next video.
-- 🎯 **Target App Awareness**: Automatically shows/hides the overlay when entering or leaving supported apps.
-- 🚀 **Background Processing**: Reliable operation even when the main app is in the background.
-- 🛠️ **Accessibility-Powered**: Uses native Android Accessibility Services for precise, system-level swipe gestures.
-- 🎨 **Modern UI/UX**: Sleek dark-themed interface with glassmorphism effects.
+- **📱 Smart Overlay Control**: A sleek, unobtrusive floating widget gives you Play/Pause and Next controls from anywhere.
+- **⏱️ Adjustable Scroll Timer**: Set your preferred viewing time per video—from quick skips to deep dives.
+- **🧠 Intelligent App Detection**: The overlay automatically appears when you open a compatible app and vanishes when you leave or minimize it to save battery.
+- **⚡ Background Efficiency**: Optimized to run smoothly in the background without draining your resources.
+- **👆 System-Level Gestures**: Uses advanced Android Accessibility integration for natural, human-like swipe interactions.
+- **🎨 Glassmorphism UI**: A beautiful, modern dark-mode interface that feels right at home on your device.
 
 ---
 
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="docs/autoscroll-screen.jpg" width="30%" alt="Main Screen" />
-  <img src="docs/with-overlay.jpg" width="30%" alt="Overlay Controls" />
+  <img src="docs/autoscroll-screen.jpg" width="30%" alt="Main Screen" style="border-radius: 10px; margin: 10px;" />
+  <img src="docs/with-overlay.jpg" width="30%" alt="Overlay Controls" style="border-radius: 10px; margin: 10px;" />
 </p>
-
----
-
-## 🛠️ Architecture & Tech Stack
-
-The project utilizes a robust multi-layered architecture:
-
-- **Frontend**: Flutter & Riverpod (State Management)
-- **Overlay**: `flutter_overlay_window` for system-level UI.
-- **Background**: `flutter_background_service` for persistent operations.
-- **Native Bridge**: Custom Kotlin MethodChannels and Accessibility Services.
-- **Communication**: Event-driven bridge between Main Isolate, Background Service, and Overlay.
 
 ---
 
@@ -44,15 +34,16 @@ The project utilizes a robust multi-layered architecture:
 
 ### Prerequisites
 
-- Flutter SDK (latest stable)
-- Android Studio / VS Code
-- Android Device (API 24+)
+- **Android Device** (Android 7.0 / API 24 or higher)
+- **Flutter SDK** (Latest Stable)
+- IDE (VS Code or Android Studio)
 
 ### Installation
 
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/dipak-github/autoscroll_app.git
+   cd autoscroll_app
    ```
 
 2. **Install dependencies**:
@@ -60,39 +51,46 @@ The project utilizes a robust multi-layered architecture:
    flutter pub get
    ```
 
-3. **Required Permissions**:
-   The app requires two critical permissions to function:
-   - **Display over other apps**: For the floating control window.
-   - **Accessibility Service**: To perform the swipe gestures.
-
-4. **Run the app**:
+3. **Run the app**:
    ```bash
    flutter run
    ```
 
 ---
 
-## 📖 How It Works
+## 📖 How to Use
 
-1. **Activation**: Enable the Background Service and grant permissions from the main screen.
-2. **Detection**: Open a supported app (e.g., Instagram Reels).
-3. **Control**: The floating overlay will appear automatically.
-4. **Automation**: Hit **Play** to start the auto-scroll timer or use **Next** for a manual swipe.
+1. **Grant Permissions**: Upon first launch, the app will guide you to enable:
+   - **Display over other apps**: Required to show the floating controller.
+   - **Accessibility Service**: Required to perform the actual scrolling action.
+   - **Notification**: Required to keep the service running in the background (Android 13+).
+
+2. **Configure**: Set your desired **Scroll Duration** (e.g., 15 seconds) in the app.
+
+3. **Activate**: Toggle the service **ON**.
+
+4. **Enjoy**: Open Instagram, TikTok, or YouTube Shorts. The overlay will appear automatically. Tap **Play** to start auto-scrolling!
 
 ---
 
-## 🛡️ Privacy & Security
+## 🛠️ Tech Stack & Architecture
 
-This app uses the **Accessibility Service API** solely for the purpose of simulating swipe gestures. It **does not** collect, store, or transmit any user data, screen content, or personal information.
+Built with a focus on performance, stability, and clean code principles.
+
+- **Framework**: [Flutter](https://flutter.dev) (Dart)
+- **State Management**: [Riverpod](https://riverpod.dev) (Clean Architecture)
+- **Core Services**:
+  - `flutter_overlay_window`: For the floating UI.
+  - `flutter_background_service`: For persistent background execution.
+  - **Native Android (Kotlin)**: Custom Accessibility Service implementation for precise gesture dispatching.
+- **Communication**: Bidirectional `MethodChannel` usage for syncing state between the Main UI, Background Service, and Overlay.
 
 ---
 
-## 🤝 Contributing
+## ⚠️ Important Notes
 
-Contributions are welcome! If you'd like to improve the app, please:
-1. Fork the repository.
-2. Create a feature branch.
-3. Submit a pull request.
+- **Privacy**: This app uses Accessibility Services **strictly** for performing swipe gestures. It **does not** read your screen content, log your keystrokes, or access personal data.
+- **Battery Optimization**: If the app stops working in the background, ensure you have disabled "Battery Optimization" for AutoScroll Pro in your device settings.
 
 ---
 

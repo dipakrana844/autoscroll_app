@@ -55,32 +55,82 @@ class AutoScrollService : AccessibilityService() {
         return super.onUnbind(intent)
     }
 
+    private val targetPackages = setOf(
+        "com.instagram.android",
+        "com.google.android.youtube",
+        "com.zhiliaoapp.musically",
+        "com.ss.android.ugc.trill",
+        "com.facebook.katana",
+        "com.facebook.orca"
+    )
+
+    private val ignoredPackages = setOf(
+        "com.google.android.inputmethod.latin",
+        "com.samsung.android.honeyboard",
+        "com.microsoft.emmx"
+    )
+
     private var lastTargetAppState: Boolean = false
+    private var lastPackageName: String = ""
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
-        val packageName = event.packageName?.toString() ?: ""
+        val eventPackageName = event.packageName?.toString() ?: ""
         
-        // CRITICAL: Ignore events from our own package.
-        // If the overlay window gets focus, we don't want to hide it!
-        if (packageName == this.packageName) return
+        // 1. Ignore events from our own package to prevent self-hiding
+        if (eventPackageName == this.packageName) return
 
-        // We only care about major window state changes (switching apps or activities)
+        // 2. Only respond to major window changes (App/Activity switches)
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            val isTargetApp = checkIsTargetApp(packageName)
             
-            // Only send broadcast if the state actually changed
-            if (isTargetApp != lastTargetAppState) {
-                lastTargetAppState = isTargetApp
-                notifyAppChange(isTargetApp)
+            // Get the package name of the actual active window
+            val currentPackageName = rootInActiveWindow?.packageName?.toString() ?: eventPackageName
+            if (currentPackageName.isEmpty()) return
+
+            // 3. Prevent logic from running if the package hasn't changed (prevents spam)
+            if (currentPackageName == lastPackageName) return
+            lastPackageName = currentPackageName
+
+            val isTarget = checkIsTargetApp(currentPackageName)
+            val isIgnored = isInputMethodApp(currentPackageName)
+
+            Log.d(TAG, "App Switch -> Active: $currentPackageName, IsTarget: $isTarget, IsIgnored: $isIgnored")
+
+            if (isTarget) {
+                // If we entered a target app, ensure overlay is shown
+                if (!lastTargetAppState) {
+                    lastTargetAppState = true
+                    notifyAppChange(true)
+                }
+            } else if (!isIgnored) {
+                // FORCE hide whenever we move to a different, non-target app (like Chrome/Launcher/SystemUI)
+                // This now properly handles Home screen and Recents menu by closing the overlay.
+                lastTargetAppState = false
+                notifyAppChange(false)
             }
         }
     }
 
+    private fun isInputMethodApp(packageName: String): Boolean {
+        val lower = packageName.lowercase()
+        return ignoredPackages.contains(packageName) || 
+               lower.contains("inputmethod") || 
+               lower.contains("keyboard")
+    }
+
     private fun checkIsTargetApp(packageName: String): Boolean {
-        return packageName == "com.instagram.android" || 
-               packageName == "com.google.android.youtube"
+        if (packageName.isEmpty()) return false
+        
+        val lower = packageName.lowercase()
+        // Direct target package check
+        if (targetPackages.contains(packageName)) return true
+        
+        // Keyword check for variants/modified versions
+        return lower.contains("instagram") || 
+               lower.contains("youtube") || 
+               lower.contains("tiktok") ||
+               lower.contains("reels")
     }
 
     private fun notifyAppChange(isTarget: Boolean) {
@@ -88,7 +138,7 @@ class AutoScrollService : AccessibilityService() {
         intent.putExtra(AutoScrollPlugin.EXTRA_IS_TARGET_APP, isTarget)
         intent.setPackage(packageName)
         sendBroadcast(intent)
-        Log.d(TAG, "App changed: Target=$isTarget")
+        Log.d(TAG, "Broadcast sent: isTarget=$isTarget (Current App: $lastPackageName)")
     }
 
     override fun onInterrupt() {
@@ -96,40 +146,39 @@ class AutoScrollService : AccessibilityService() {
     }
 
     fun performScroll() {
-        Log.d(TAG, "performScroll called")
+        Log.d(TAG, "performScroll initiated")
         
         val displayMetrics = resources.displayMetrics
         val width = displayMetrics.widthPixels
         val height = displayMetrics.heightPixels
 
-        // Define a longer swipe path (bottom-to-top) for better Reels reliability
+        // Optimized swipe path for Short-form video apps (Reels/Shorts)
         val path = Path()
-        val startX = width / 2f
-        val startY = height * 0.85f // Start near bottom
-        val endY = height * 0.15f   // End near top
+        val startX = width * 0.5f
+        val startY = height * 0.8f // Start near bottom (but not off-screen)
+        val endY = height * 0.2f   // End near top
 
         path.moveTo(startX, startY)
+        // Add a slight curve or multi-point line if needed, but straight is usually best for scrolls
         path.lineTo(startX, endY)
 
         val gestureBuilder = GestureDescription.Builder()
-        // Use 400ms with a small 50ms start delay to make it feel more "natural" to the OS
-        gestureBuilder.addStroke(GestureDescription.StrokeDescription(path, 50, 400))
-        
-        Log.d(TAG, "Dispatching Reels scroll gesture: ($startX, $startY) -> ($startX, $endY)")
+        // 350ms is a good balance between "too fast" and "too slow"
+        gestureBuilder.addStroke(GestureDescription.StrokeDescription(path, 10, 350))
         
         val dispatched = dispatchGesture(gestureBuilder.build(), object : GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
                 super.onCompleted(gestureDescription)
-                Log.d(TAG, "Gesture Successfully Completed")
+                Log.d(TAG, "Gesture execution successfully completed")
             }
             override fun onCancelled(gestureDescription: GestureDescription?) {
                 super.onCancelled(gestureDescription)
-                Log.e(TAG, "Gesture Cancelled - Screen might be off or overlay blocking")
+                Log.e(TAG, "Gesture execution cancelled")
             }
         }, null)
 
         if (!dispatched) {
-            Log.e(TAG, "Failed to dispatch gesture - check service state")
+            Log.e(TAG, "Critical: Failed to dispatch gesture")
         }
     }
 }

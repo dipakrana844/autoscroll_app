@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../core/constants.dart';
 
 class SettingsState {
@@ -33,10 +34,26 @@ class SettingsNotifier extends Notifier<SettingsState> {
     );
   }
 
-  void setScrollDuration(int duration) {
-    final prefs = ref.read(sharedPreferencesProvider);
-    prefs.setInt(AppConstants.keyScrollDuration, duration);
+  void updateScrollDuration(int duration) {
     state = state.copyWith(scrollDuration: duration);
+  }
+
+  void saveScrollDuration(int duration) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setInt(AppConstants.keyScrollDuration, duration);
+    // Ensure state is updated (if not already)
+    if (state.scrollDuration != duration) {
+      state = state.copyWith(scrollDuration: duration);
+    }
+
+    // Sync with overlay
+    try {
+      if (await FlutterOverlayWindow.isActive()) {
+        await FlutterOverlayWindow.shareData({'scrollDuration': duration});
+      }
+    } catch (e) {
+      // Ignore errors if overlay is not available
+    }
   }
 
   void setAutoScrollEnabled(bool enabled) {
