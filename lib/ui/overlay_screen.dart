@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +16,10 @@ class OverlayScreen extends StatefulWidget {
 
 class _OverlayScreenState extends State<OverlayScreen> {
   int _countdown = 10;
-  int _maxDuration = 10;
+  int _baseDuration = 10; // Stores the user setting
+  int _randomVariance = 0;
+  int _sleepTimerMinutes = 0;
+  DateTime? _startTime;
   bool _isScrolling = false;
   bool _isPlaying = false;
   Timer? _timer;
@@ -27,13 +31,21 @@ class _OverlayScreenState extends State<OverlayScreen> {
     _loadSettings();
     FlutterOverlayWindow.overlayListener.listen((event) {
       if (event != null && event is Map) {
+        bool needsUpdate = false;
         if (event.containsKey('scrollDuration')) {
-          final newDuration = event['scrollDuration'] as int;
+          _baseDuration = event['scrollDuration'] as int;
+          needsUpdate = true;
+        }
+        if (event.containsKey('randomVariance')) {
+          _randomVariance = event['randomVariance'] as int;
+        }
+        if (event.containsKey('sleepTimerMinutes')) {
+          _sleepTimerMinutes = event['sleepTimerMinutes'] as int;
+        }
+
+        if (needsUpdate && !_isPlaying && !_isScrolling) {
           setState(() {
-            _maxDuration = newDuration;
-            if (!_isPlaying && !_isScrolling) {
-              _countdown = _maxDuration;
-            }
+            _resetCountdown();
           });
         }
       }
@@ -42,32 +54,61 @@ class _OverlayScreenState extends State<OverlayScreen> {
 
   Future<void> _loadSettings() async {
     _prefs = await SharedPreferences.getInstance();
-    _refreshDuration();
+    _refreshSettings();
   }
 
-  void _refreshDuration() {
+  void _refreshSettings() {
     if (_prefs != null) {
       setState(() {
-        _maxDuration =
+        _baseDuration =
             _prefs!.getInt(AppConstants.keyScrollDuration) ??
             AppConstants.defaultDuration;
+        _randomVariance =
+            _prefs!.getInt(AppConstants.keyRandomVariance) ??
+            AppConstants.defaultVariance;
+        _sleepTimerMinutes =
+            _prefs!.getInt(AppConstants.keySleepTimerMinutes) ??
+            AppConstants.defaultSleepTimer;
+
         // If the timer isn't running, update the current display
         if (!_isPlaying && !_isScrolling) {
-          _countdown = _maxDuration;
+          _resetCountdown();
         }
       });
     }
   }
 
+  void _resetCountdown() {
+    if (_randomVariance > 0) {
+      final random = Random();
+      // Variance range: [-variance, +variance]
+      final variance =
+          random.nextInt(_randomVariance * 2 + 1) - _randomVariance;
+      _countdown = max(3, _baseDuration + variance); // Minimum 3 seconds
+    } else {
+      _countdown = _baseDuration;
+    }
+  }
+
   void _startTimer() {
-    // Refresh duration one last time before starting to be sure
-    _refreshDuration();
+    _refreshSettings();
     setState(() {
       _isPlaying = true;
-      _countdown = _maxDuration;
+      _startTime = DateTime.now();
+      _resetCountdown();
     });
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      // Check Sleep Timer
+      if (_sleepTimerMinutes > 0 && _startTime != null) {
+        final elapsed = DateTime.now().difference(_startTime!);
+        if (elapsed.inMinutes >= _sleepTimerMinutes) {
+          _stopTimer();
+          // Optional: Show a toast or message that sleep timer triggered
+          return;
+        }
+      }
+
       if (_countdown > 1) {
         setState(() => _countdown--);
       } else {
@@ -80,7 +121,8 @@ class _OverlayScreenState extends State<OverlayScreen> {
     _timer?.cancel();
     setState(() {
       _isPlaying = false;
-      _countdown = _maxDuration;
+      _startTime = null; // Reset session start time
+      _resetCountdown();
     });
   }
 
@@ -90,8 +132,6 @@ class _OverlayScreenState extends State<OverlayScreen> {
     setState(() => _isScrolling = true);
 
     try {
-      // Revert optimization: Must use background service bridge because
-      // the Overlay runs in a separate engine that lacks the custom plugin.
       FlutterBackgroundService().invoke('trigger_scroll');
       debugPrint("Overlay: Triggered scroll via Background Service bridge");
     } catch (e) {
@@ -101,10 +141,14 @@ class _OverlayScreenState extends State<OverlayScreen> {
     await Future.delayed(const Duration(milliseconds: 400));
 
     if (mounted) {
-      // Always re-read duration after a scroll finishes in case user changed it
-      _refreshDuration();
+      // Refresh settings in case they changed
+      _refreshSettings();
       setState(() {
-        _countdown = _maxDuration;
+        if (_isPlaying) {
+          _resetCountdown();
+        } else {
+          _countdown = _baseDuration;
+        }
         _isScrolling = false;
       });
     }
@@ -126,7 +170,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
           color: Colors.black.withOpacity(0.7),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white24, width: 1),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(color: Colors.black54, blurRadius: 10, spreadRadius: 2),
           ],
         ),

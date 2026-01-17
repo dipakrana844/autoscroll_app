@@ -14,10 +14,12 @@ Designed for **Instagram Reels**, **TikTok**, **YouTube Shorts**, and more.
 
 - **📱 Smart Overlay Control**: A sleek, unobtrusive floating widget gives you Play/Pause and Next controls from anywhere.
 - **⏱️ Adjustable Scroll Timer**: Set your preferred viewing time per video—from quick skips to deep dives.
+- **🎲 Humanized Scrolling**: Adds random variance to the scroll timer to mimic human behavior (e.g., 10s +/- 2s).
+- **💤 Sleep Timer**: Automatically stop scrolling after a set duration (e.g., 30 mins) so you can fall asleep watching.
 - **🧠 Intelligent App Detection**: The overlay automatically appears when you open a compatible app and vanishes when you leave or minimize it to save battery.
 - **⚡ Background Efficiency**: Optimized to run smoothly in the background without draining your resources.
 - **👆 System-Level Gestures**: Uses advanced Android Accessibility integration for natural, human-like swipe interactions.
-- **🎨 Glassmorphism UI**: A beautiful, modern dark-mode interface that feels right at home on your device.
+- **🎨 Modern Glassmorphism UI**: A beautiful, premium dark-mode interface with smooth gradients and animations.
 
 ---
 

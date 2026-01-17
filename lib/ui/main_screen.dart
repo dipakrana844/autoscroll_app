@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -47,12 +48,14 @@ class _MainScreenState extends ConsumerState<MainScreen>
     final notificationStatus = await Permission.notification.isGranted;
     final isRunning = await FlutterBackgroundService().isRunning();
 
-    setState(() {
-      _isOverlayPermissionGranted = overlayStatus;
-      _isAccessibilityPermissionGranted = accessibilityStatus;
-      _isNotificationPermissionGranted = notificationStatus;
-      _isServiceRunning = isRunning;
-    });
+    if (mounted) {
+      setState(() {
+        _isOverlayPermissionGranted = overlayStatus;
+        _isAccessibilityPermissionGranted = accessibilityStatus;
+        _isNotificationPermissionGranted = notificationStatus;
+        _isServiceRunning = isRunning;
+      });
+    }
   }
 
   Future<void> _requestNotificationPermission() async {
@@ -77,150 +80,211 @@ class _MainScreenState extends ConsumerState<MainScreen>
     final settingsNotifier = ref.read(settingsProvider.notifier);
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('AutoScroll Prototype'),
+        title: const Text('AutoScroll Pro'),
         centerTitle: true,
-        elevation: 2,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1A1A2E), Color(0xFF16213E), Color(0xFF0F3460)],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatusHeader(),
+                const SizedBox(height: 24),
+                _buildActionData(),
+                const SizedBox(height: 24),
+                _buildSectionTitle("Configuration"),
+                const SizedBox(height: 12),
+                _buildSettingsCard(settings, settingsNotifier),
+                const SizedBox(height: 24),
+                _buildSectionTitle("Advanced Features"),
+                const SizedBox(height: 12),
+                _buildAdvancedSettingsCard(settings, settingsNotifier),
+                const SizedBox(height: 24),
+                _buildSectionTitle("System Permissions"),
+                const SizedBox(height: 12),
+                _buildPermissionCard(),
+                const SizedBox(height: 80), // Bottom padding
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title.toUpperCase(),
+      style: const TextStyle(
+        color: Colors.white70,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  Widget _buildStatusHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+      // decoration: BoxDecoration(
+      //   color: Colors.white.withOpacity(0.05),
+      //   borderRadius: BorderRadius.circular(20),
+      //   border: Border.all(color: Colors.white10),
+      // ),
+      child: Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildPermissionCard(),
-            const SizedBox(height: 24),
-            _buildServiceCard(),
-            const SizedBox(height: 24),
-            _buildControlCard(), // Moved up for better visibility
-            const SizedBox(height: 24),
-            _buildSettingsCard(settings, settingsNotifier),
+            Icon(
+              _isServiceRunning
+                  ? Icons.check_circle_outline
+                  : Icons.power_settings_new,
+              size: 60,
+              color: _isServiceRunning ? Colors.greenAccent : Colors.white38,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _isServiceRunning ? "Active & Ready" : "Service Inactive",
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _isServiceRunning
+                  ? "Open TikTok, Reels, or Shorts to start"
+                  : "Turn on the service to begin",
+              style: const TextStyle(color: Colors.white54, fontSize: 14),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPermissionCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Permissions',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Divider(),
-            ListTile(
-              title: const Text('Overlay Permission'),
-              subtitle: Text(
-                _isOverlayPermissionGranted ? 'Granted' : 'Required',
-              ),
-              trailing: _isOverlayPermissionGranted
-                  ? const Icon(Icons.check_circle, color: Colors.green)
-                  : ElevatedButton(
-                      onPressed: _requestOverlayPermission,
-                      child: const Text('Grant'),
-                    ),
-            ),
-            ListTile(
-              title: const Text('Accessibility Service'),
-              subtitle: Text(
-                _isAccessibilityPermissionGranted ? 'Enabled' : 'Disabled',
-              ),
-              trailing: _isAccessibilityPermissionGranted
-                  ? const Icon(Icons.check_circle, color: Colors.green)
-                  : ElevatedButton(
-                      onPressed: () async {
-                        await ScrollService.openAccessibilitySettings();
-                      },
-                      child: const Text('Enable'),
-                    ),
-            ),
-            ListTile(
-              title: const Text('Notification Permission'),
-              subtitle: Text(
-                _isNotificationPermissionGranted ? 'Granted' : 'Required',
-              ),
-              trailing: _isNotificationPermissionGranted
-                  ? const Icon(Icons.check_circle, color: Colors.green)
-                  : ElevatedButton(
-                      onPressed: _requestNotificationPermission,
-                      child: const Text('Grant'),
-                    ),
-            ),
-          ],
+  Widget _buildActionData() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: _isServiceRunning
+              ? [Colors.blue.withOpacity(0.8), Colors.purple.withOpacity(0.8)]
+              : [Colors.grey.withOpacity(0.3), Colors.grey.withOpacity(0.1)],
         ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _isServiceRunning
+                ? Colors.blue.withOpacity(0.3)
+                : Colors.transparent,
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildServiceCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Background Service',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Divider(),
-            ListTile(
-              title: const Text('Status'),
-              subtitle: Text(_isServiceRunning ? 'Running' : 'Stopped'),
-              trailing: Switch(
-                value: _isServiceRunning,
-                onChanged: (value) async {
-                  final service = FlutterBackgroundService();
-                  if (value) {
-                    if (!_isNotificationPermissionGranted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please grant notification permission'),
-                        ),
-                      );
-                      return;
-                    }
-                    await service.startService();
-                  } else {
-                    service.invoke('stopService');
-                  }
-
-                  // Wait a bit for service to update
-                  await Future.delayed(const Duration(milliseconds: 500));
-                  _checkPermissions();
-                },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _isServiceRunning ? "Master Switch" : "Enable Service",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 4),
+              Text(
+                _isServiceRunning ? "ON" : "OFF",
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          Switch(
+            value: _isServiceRunning,
+            activeColor: Colors.white,
+            activeTrackColor: Colors.white.withOpacity(0.3),
+            onChanged: (value) async {
+              final service = FlutterBackgroundService();
+              if (value) {
+                if (!_isNotificationPermissionGranted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please grant notification permission'),
+                    ),
+                  );
+                  return;
+                }
+                await service.startService();
+              } else {
+                service.invoke('stopService');
+              }
+
+              // Visual feedback delay
+              await Future.delayed(const Duration(milliseconds: 300));
+              _checkPermissions();
+            },
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildSettingsCard(SettingsState settings, SettingsNotifier notifier) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Settings',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    return _buildGlassCard(
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Scroll Interval',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              Text(
+                '${settings.scrollDuration}s',
+                style: const TextStyle(
+                  color: Colors.blueAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.blueAccent,
+              inactiveTrackColor: Colors.white10,
+              thumbColor: Colors.white,
+              overlayColor: Colors.blueAccent.withOpacity(0.2),
             ),
-            const Divider(),
-            const SizedBox(height: 8),
-            Text('Scroll Duration: ${settings.scrollDuration} seconds'),
-            Slider(
+            child: Slider(
               value: settings.scrollDuration.toDouble(),
               min: 5,
               max: 60,
               divisions: 11,
-              label: '${settings.scrollDuration}s',
               onChanged: (value) {
                 notifier.updateScrollDuration(value.toInt());
               },
@@ -228,106 +292,156 @@ class _MainScreenState extends ConsumerState<MainScreen>
                 notifier.saveScrollDuration(value.toInt());
               },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildControlCard() {
-    return Card(
-      color: Colors.blue.withOpacity(0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Text(
-              'Overlay Controls',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Divider(),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+  Widget _buildAdvancedSettingsCard(
+    SettingsState settings,
+    SettingsNotifier notifier,
+  ) {
+    return _buildGlassCard(
+      child: Column(
+        children: [
+          // Random Variance Controls
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Humanize (Random)',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  Text(
+                    'Adds random +/- time check',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
               ),
-              onPressed: () async {
-                try {
-                  bool isActive = await FlutterOverlayWindow.isActive();
-                  if (isActive) {
-                    await FlutterOverlayWindow.closeOverlay();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Overlay Closed')),
-                      );
-                    }
-                  } else {
-                    if (_isOverlayPermissionGranted) {
-                      await FlutterOverlayWindow.showOverlay(
-                        enableDrag: true,
-                        overlayTitle: "AutoScroll Controls",
-                        overlayContent: "Managing your Reels",
-                        flag: OverlayFlag.defaultFlag,
-                        alignment: OverlayAlignment.centerRight,
-                        visibility: NotificationVisibility.visibilityPublic,
-                        positionGravity: PositionGravity.right,
-                        height: 800,
-                        width: 200,
-                      );
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Attempting to show overlay...'),
-                          ),
-                        );
-                      }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please grant overlay permission first',
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                } catch (e) {
-                  debugPrint("Overlay Error: $e");
-                  if (mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-                setState(() {});
+              Text(
+                settings.randomVariance == 0
+                    ? 'OFF'
+                    : '+/- ${settings.randomVariance}s',
+                style: TextStyle(
+                  color: settings.randomVariance > 0
+                      ? Colors.orangeAccent
+                      : Colors.grey,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.orangeAccent,
+              inactiveTrackColor: Colors.white10,
+              thumbColor: Colors.white,
+            ),
+            child: Slider(
+              value: settings.randomVariance.toDouble(),
+              min: 0,
+              max: 10,
+              divisions: 10,
+              onChanged: (value) {
+                notifier.updateRandomVariance(value.toInt());
               },
-              icon: const Icon(Icons.layers),
-              label: const Text('Toggle Overlay Controls'),
+              onChangeEnd: (value) {
+                notifier.saveRandomVariance(value.toInt());
+              },
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'NEW: The overlay now shows AUTOMATICALLY when you open Instagram Reels or YouTube Shorts, and hides when you leave them.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.greenAccent,
-                fontWeight: FontWeight.bold,
+          ),
+          const Divider(color: Colors.white10),
+          const SizedBox(height: 10),
+          // Sleep Timer Controls
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Sleep Timer',
+                style: TextStyle(color: Colors.white, fontSize: 16),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Note: Ensure Accessibility Service is enabled for this to work.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
-                color: Colors.grey,
+              DropdownButton<int>(
+                dropdownColor: const Color(0xFF16213E),
+                value: settings.sleepTimerMinutes,
+                style: const TextStyle(color: Colors.white),
+                underline: Container(),
+                items: const [
+                  DropdownMenuItem(value: 0, child: Text('Disabled')),
+                  DropdownMenuItem(value: 10, child: Text('10 mins')),
+                  DropdownMenuItem(value: 30, child: Text('30 mins')),
+                  DropdownMenuItem(value: 60, child: Text('1 hour')),
+                  DropdownMenuItem(value: 120, child: Text('2 hours')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    notifier.saveSleepTimer(value);
+                  }
+                },
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildPermissionCard() {
+    return _buildGlassCard(
+      child: Column(
+        children: [
+          _buildPermissionTile(
+            'Overlay',
+            _isOverlayPermissionGranted,
+            _requestOverlayPermission,
+          ),
+          const Divider(color: Colors.white10),
+          _buildPermissionTile(
+            'Accessibility',
+            _isAccessibilityPermissionGranted,
+            () => ScrollService.openAccessibilitySettings(),
+          ),
+          const Divider(color: Colors.white10),
+          _buildPermissionTile(
+            'Notification',
+            _isNotificationPermissionGranted,
+            _requestNotificationPermission,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionTile(
+    String title,
+    bool isGranted,
+    VoidCallback onAction,
+  ) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      trailing: isGranted
+          ? const Icon(Icons.check_circle, color: Colors.greenAccent)
+          : TextButton(onPressed: onAction, child: const Text('Allow')),
+    );
+  }
+
+  Widget _buildGlassCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: child,
     );
   }
 }
