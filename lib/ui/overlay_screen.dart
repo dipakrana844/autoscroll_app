@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import '../services/analytics_service.dart';
+import '../services/preferences_service.dart';
 
 class OverlayScreen extends StatefulWidget {
   const OverlayScreen({super.key});
@@ -24,6 +26,9 @@ class _OverlayScreenState extends State<OverlayScreen> {
   bool _isPlaying = false;
   Timer? _timer;
   SharedPreferences? _prefs;
+
+  final _analytics = AnalyticsService();
+  final _prefsService = PreferencesService();
 
   @override
   void initState() {
@@ -134,6 +139,10 @@ class _OverlayScreenState extends State<OverlayScreen> {
     try {
       FlutterBackgroundService().invoke('trigger_scroll');
       debugPrint("Overlay: Triggered scroll via Background Service bridge");
+
+      // Track analytics
+      _analytics.logEvent(AnalyticsEvents.scrollTriggered);
+      _prefsService.incrementScrollCount();
     } catch (e) {
       debugPrint("Overlay Scroll Error: $e");
     }

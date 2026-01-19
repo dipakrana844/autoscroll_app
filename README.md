@@ -1,107 +1,223 @@
-# AutoScroll Pro 🚀
+# AutoScroll Pro - Production-Ready Flutter Application
 
-[![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
-[![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+A professional auto-scroller for short-form video apps (TikTok, Instagram Reels, YouTube Shorts) with floating overlay controls and intelligent background service support.
 
-**AutoScroll Pro** is the ultimate hands-free utility for modern short-form video consumption. Whether you're multitasking, eating, or just relaxing, AutoScroll Pro takes control of your feed, automatically scrolling to the next video so you don't have to lift a finger.
+## 🎯 Project Overview
 
-Designed for **Instagram Reels**, **TikTok**, **YouTube Shorts**, and more.
+AutoScroll Pro is a production-ready Flutter application that provides automated scrolling functionality for popular short-form video platforms. The app features a floating overlay interface, smart timing controls, and comprehensive analytics tracking.
 
----
+## ✨ Key Features
 
-## ✨ Features
+### Core Functionality
+- **Automated Scrolling**: Intelligent auto-scroll with customizable intervals (5-60 seconds)
+- **Floating Overlay Controls**: Draggable overlay widget for in-app control
+- **Target App Detection**: Automatically shows/hides overlay when entering/exiting supported apps
+- **Background Service**: Persistent service for reliable operation
 
-- **📱 Smart Overlay Control**: A sleek, unobtrusive floating widget gives you Play/Pause and Next controls from anywhere.
-- **⏱️ Adjustable Scroll Timer**: Set your preferred viewing time per video—from quick skips to deep dives.
-- **🎲 Humanized Scrolling**: Adds random variance to the scroll timer to mimic human behavior (e.g., 10s +/- 2s).
-- **💤 Sleep Timer**: Automatically stop scrolling after a set duration (e.g., 30 mins) so you can fall asleep watching.
-- **🧠 Intelligent App Detection**: The overlay automatically appears when you open a compatible app and vanishes when you leave or minimize it to save battery.
-- **⚡ Background Efficiency**: Optimized to run smoothly in the background without draining your resources.
-- **👆 System-Level Gestures**: Uses advanced Android Accessibility integration for natural, human-like swipe interactions.
-- **🎨 Modern Glassmorphism UI**: A beautiful, premium dark-mode interface with smooth gradients and animations.
+### Advanced Features
+- **Humanize Mode**: Random variance (±0-10s) to simulate natural scrolling patterns
+- **Sleep Timer**: Auto-stop after 10min, 30min, 1hr, or 2hrs
+- **Usage Statistics**: Track scroll count, usage time, and activity history
+- **Analytics Tracking**: Comprehensive event logging for user behavior insights
+- **Offline-First**: All data stored locally with SharedPreferences
 
----
+### Production-Ready Enhancements
+- **Clean Architecture**: Separation of concerns with services, providers, and UI layers
+- **State Management**: Riverpod for reactive and efficient state handling
+- **Error Handling**: Result type pattern for robust error management
+- **Reusable Components**: Common widgets (GlassCard, SectionTitle, GradientButton, etc.)
+- **Centralized Theme**: Consistent design system with AppTheme
+- **Service Layer**: Dedicated managers for background service, analytics, and preferences
+- **Performance Optimized**: Minimal rebuilds, const constructors, efficient async handling
 
-## 📸 Screenshots
+## 📁 Project Structure
 
-<p align="center">
-  <img src="docs/autoscroll-screen.jpg" width="30%" alt="Main Screen" style="border-radius: 10px; margin: 10px;" />
-  <img src="docs/with-overlay.jpg" width="30%" alt="Overlay Controls" style="border-radius: 10px; margin: 10px;" />
-</p>
+```
+lib/
+├── core/
+│   ├── app_theme.dart          # Centralized theme and design tokens
+│   ├── constants.dart          # App-wide constants
+│   └── result.dart             # Result type for error handling
+├── providers/
+│   └── settings_provider.dart  # Settings state management with Riverpod
+├── services/
+│   ├── analytics_service.dart          # Event tracking and analytics
+│   ├── background_service_manager.dart # Background service lifecycle
+│   ├── preferences_service.dart        # Centralized preferences management
+│   └── scroll_service.dart             # Native scroll bridge
+├── ui/
+│   ├── widgets/
+│   │   └── common_widgets.dart # Reusable UI components
+│   ├── main_screen.dart        # Primary app interface
+│   ├── overlay_screen.dart     # Floating overlay controls
+│   └── statistics_screen.dart  # Usage statistics and analytics
+└── main.dart                   # App entry point and initialization
+```
 
----
+## 🏗️ Architecture
 
-## 🚀 Getting Started
+### Pattern: Clean Architecture + MVVM
+- **Presentation Layer**: UI screens and widgets
+- **Business Logic Layer**: Riverpod providers and notifiers
+- **Data Layer**: Services for analytics, preferences, and native bridges
+- **Core Layer**: Shared utilities, constants, and types
+
+### State Management: Riverpod
+- `SettingsNotifier`: Manages app settings with analytics integration
+- `sharedPreferencesProvider`: Provides SharedPreferences instance
+- Reactive updates with minimal rebuilds
+
+### Services
+1. **BackgroundServiceManager**: Handles foreground service lifecycle
+2. **AnalyticsService**: Tracks events and user behavior
+3. **PreferencesService**: Centralizes all SharedPreferences operations
+4. **ScrollService**: Native platform channel for accessibility-based scrolling
+
+## 🎨 Design System
+
+### Theme
+- **Dark Mode**: Premium dark theme with gradient backgrounds
+- **Colors**: Blue/Purple gradients, glassmorphism effects
+- **Typography**: Clean, modern text styles with proper hierarchy
+- **Components**: Consistent glass cards, buttons, and indicators
+
+### UI Components
+- `GlassCard`: Frosted glass effect container
+- `SectionTitle`: Uppercase section headers
+- `GradientButton`: Animated gradient buttons
+- `LoadingIndicator`: Consistent loading states
+- `EmptyState`: Placeholder for empty data
+
+## 📊 Analytics & Tracking
+
+### Events Tracked
+- `app_opened`: App launch
+- `service_started/stopped`: Service lifecycle
+- `scroll_triggered`: Each scroll action
+- `settings_changed`: Configuration updates
+- `permission_granted/denied`: Permission states
+- `overlay_shown/hidden`: Overlay visibility
+- `sleep_timer_activated`: Sleep timer usage
+
+### Usage Statistics
+- Total scroll count
+- Total usage time
+- Last active date
+- Recent activity log (last 50 events)
+- Event history with timestamps
+
+## 🔧 Setup & Installation
 
 ### Prerequisites
+- Flutter SDK ^3.10.4
+- Android SDK (API 21+)
+- Dart SDK
 
-- **Android Device** (Android 7.0 / API 24 or higher)
-- **Flutter SDK** (Latest Stable)
-- IDE (VS Code or Android Studio)
+### Dependencies
+```yaml
+dependencies:
+  flutter_riverpod: ^3.1.0
+  shared_preferences: ^2.2.3
+  flutter_overlay_window: ^0.5.0
+  flutter_background_service: ^5.0.10
+  permission_handler: ^12.0.1
+  device_info_plus: ^12.3.0
+```
 
 ### Installation
+```bash
+# Clone the repository
+git clone <repository-url>
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/dipak-github/autoscroll_app.git
-   cd autoscroll_app
-   ```
+# Navigate to project directory
+cd autoscroll_app
 
-2. **Install dependencies**:
-   ```bash
-   flutter pub get
-   ```
+# Get dependencies
+flutter pub get
 
-3. **Run the app**:
-   ```bash
-   flutter run
-   ```
+# Run the app
+flutter run
+```
+
+### Required Permissions
+- **Overlay Permission**: For floating controls
+- **Accessibility Service**: For scroll automation
+- **Notification Permission**: For foreground service (Android 13+)
+
+## 🚀 Usage
+
+1. **Grant Permissions**: Allow overlay, accessibility, and notification permissions
+2. **Configure Settings**: Set scroll interval, random variance, and sleep timer
+3. **Start Service**: Toggle the master switch
+4. **Open Target App**: Navigate to TikTok, Reels, or Shorts
+5. **Use Overlay**: Control scrolling with the floating overlay
+6. **View Statistics**: Tap the chart icon to see usage stats
+
+## 🔒 Privacy & Data
+
+- **Local-First**: All data stored locally on device
+- **No External Tracking**: Analytics stay on-device
+- **No Network Requests**: Fully offline functionality
+- **User Control**: Clear history and reset anytime
+
+## 🎯 Production Optimizations
+
+### Performance
+- Const constructors for static widgets
+- Minimal widget rebuilds with Riverpod
+- Efficient async operations
+- Memory leak prevention (proper disposal)
+
+### Code Quality
+- Strict linting with `flutter_lints`
+- Proper error handling with Result type
+- Comprehensive documentation
+- Separation of concerns
+
+### Scalability
+- Modular service architecture
+- Easy to extend with new features
+- Centralized configuration
+- Reusable components
+
+## 🔮 Future Enhancements
+
+### Planned Features
+- **Multi-App Profiles**: Different settings per app
+- **Gesture Customization**: Swipe patterns and speeds
+- **Cloud Backup**: Optional settings sync
+- **Advanced Analytics**: Charts and insights
+- **Themes**: Multiple color schemes
+- **Accessibility**: Screen reader support
+- **Localization**: Multi-language support
+
+### Technical Improvements
+- **Unit Tests**: Comprehensive test coverage
+- **Integration Tests**: E2E testing
+- **CI/CD**: Automated builds and releases
+- **Crash Reporting**: Sentry/Firebase integration
+- **Performance Monitoring**: Real-time metrics
+
+## 📝 License
+
+MIT License - See LICENSE file for details
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these guidelines:
+1. Fork the repository
+2. Create a feature branch
+3. Follow existing code style
+4. Add tests for new features
+5. Submit a pull request
+
+## 📧 Support
+
+For issues, questions, or suggestions:
+- Open an issue on GitHub
+- Check existing documentation
+- Review code comments
 
 ---
 
-## 📖 How to Use
-
-1. **Grant Permissions**: Upon first launch, the app will guide you to enable:
-   - **Display over other apps**: Required to show the floating controller.
-   - **Accessibility Service**: Required to perform the actual scrolling action.
-   - **Notification**: Required to keep the service running in the background (Android 13+).
-
-2. **Configure**: Set your desired **Scroll Duration** (e.g., 15 seconds) in the app.
-
-3. **Activate**: Toggle the service **ON**.
-
-4. **Enjoy**: Open Instagram, TikTok, or YouTube Shorts. The overlay will appear automatically. Tap **Play** to start auto-scrolling!
-
----
-
-## 🛠️ Tech Stack & Architecture
-
-Built with a focus on performance, stability, and clean code principles.
-
-- **Framework**: [Flutter](https://flutter.dev) (Dart)
-- **State Management**: [Riverpod](https://riverpod.dev) (Clean Architecture)
-- **Core Services**:
-  - `flutter_overlay_window`: For the floating UI.
-  - `flutter_background_service`: For persistent background execution.
-  - **Native Android (Kotlin)**: Custom Accessibility Service implementation for precise gesture dispatching.
-- **Communication**: Bidirectional `MethodChannel` usage for syncing state between the Main UI, Background Service, and Overlay.
-
----
-
-## ⚠️ Important Notes
-
-- **Privacy**: This app uses Accessibility Services **strictly** for performing swipe gestures. It **does not** read your screen content, log your keystrokes, or access personal data.
-- **Battery Optimization**: If the app stops working in the background, ensure you have disabled "Battery Optimization" for AutoScroll Pro in your device settings.
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-<p align="center">
-  Made with ❤️ by Dipak
-</p>
+**Built with ❤️ using Flutter**

@@ -6,11 +6,10 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'providers/settings_provider.dart';
 import 'ui/main_screen.dart';
 import 'ui/overlay_screen.dart';
-import 'services/scroll_service.dart';
-
-import 'package:flutter_background_service/flutter_background_service.dart';
-
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'services/background_service_manager.dart';
+import 'services/analytics_service.dart';
+import 'services/preferences_service.dart';
+import 'core/app_theme.dart';
 
 @pragma("vm:entry-point")
 void overlayMain() {
@@ -20,62 +19,27 @@ void overlayMain() {
   );
 }
 
-Future<void> initializeService() async {
-  final service = FlutterBackgroundService();
-
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: onStart,
-      autoStart: false,
-      isForegroundMode: true,
-      notificationChannelId: 'autoscroll_service_v2',
-      initialNotificationTitle: 'AutoScroll Running',
-      initialNotificationContent: 'Tap to manage',
-      foregroundServiceNotificationId: 999,
-    ),
-    iosConfiguration: IosConfiguration(),
-  );
-}
-
-@pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
-  if (service is AndroidServiceInstance) {
-    service.on('setAsForeground').listen((event) {
-      service.setAsForegroundService();
-    });
-
-    service.on('setAsBackground').listen((event) {
-      service.setAsBackgroundService();
-    });
-  }
-
-  service.on('stopService').listen((event) {
-    service.stopSelf();
-  });
-
-  // Listen for scroll commands from the overlay
-  service.on('trigger_scroll').listen((event) {
-    // Forward the command to the Main Isolate (UI Isolate)
-    // because that's where the native plugin is registered.
-    service.invoke('scroll_on_main');
-  });
-
-  // Background timer logic can go here
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeService();
 
-  // Listen for scroll commands from the background service bridge
-  // This listener runs in the MAIN isolate which has the native plugin.
-  FlutterBackgroundService().on('scroll_on_main').listen((event) {
-    debugPrint(
-      "Main Isolate: Received scroll command, triggering native scroll...",
-    );
-    ScrollService.triggerScroll();
-  });
+  final prefs = await SharedPreferences.getInstance();
 
+  // Initialize services
+  final serviceManager = BackgroundServiceManager();
+  await serviceManager.initialize();
+  serviceManager.listenForScrollOnMain();
+
+  final analyticsService = AnalyticsService();
+  await analyticsService.initialize(prefs);
+
+  final preferencesService = PreferencesService();
+  await preferencesService.initialize(prefs);
+
+  // Track app opened
+  analyticsService.logEvent(AnalyticsEvents.appOpened);
+  preferencesService.updateLastActiveDate();
+
+  // Native Bridge: Listen for App Changes (Target App Detection)
   const channel = MethodChannel('com.example.autoscroll/scroll');
   channel.setMethodCallHandler((call) async {
     if (call.method == "onAppChanged") {
@@ -95,17 +59,17 @@ void main() async {
             height: 800,
             width: 200,
           );
+          analyticsService.logEvent(AnalyticsEvents.overlayShown);
         }
       } else {
         if (await FlutterOverlayWindow.isActive()) {
           await FlutterOverlayWindow.closeOverlay();
+          analyticsService.logEvent(AnalyticsEvents.overlayHidden);
         }
       }
     }
     return null;
   });
-
-  final prefs = await SharedPreferences.getInstance();
 
   runApp(
     ProviderScope(
@@ -121,19 +85,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AutoScroll Proto',
+      title: 'AutoScroll Pro',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        cardTheme: CardThemeData(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
+      theme: AppTheme.darkTheme,
       home: const MainScreen(),
     );
   }

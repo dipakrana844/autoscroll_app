@@ -6,6 +6,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import '../providers/settings_provider.dart';
 import '../services/scroll_service.dart';
+import 'statistics_screen.dart';
+import 'widgets/common_widgets.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -122,6 +124,16 @@ class _MainScreenState extends ConsumerState<MainScreen>
             ),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+          );
+        },
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.bar_chart),
       ),
     );
   }
@@ -253,7 +265,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
   }
 
   Widget _buildSettingsCard(SettingsState settings, SettingsNotifier notifier) {
-    return _buildGlassCard(
+    return GlassCard(
       child: Column(
         children: [
           Row(
@@ -302,7 +314,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
     SettingsState settings,
     SettingsNotifier notifier,
   ) {
-    return _buildGlassCard(
+    return GlassCard(
       child: Column(
         children: [
           // Random Variance Controls
@@ -394,7 +406,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
   }
 
   Widget _buildPermissionCard() {
-    return _buildGlassCard(
+    return GlassCard(
       child: Column(
         children: [
           _buildPermissionTile(
@@ -430,18 +442,6 @@ class _MainScreenState extends ConsumerState<MainScreen>
       trailing: isGranted
           ? const Icon(Icons.check_circle, color: Colors.greenAccent)
           : TextButton(onPressed: onAction, child: const Text('Allow')),
-    );
-  }
-
-  Widget _buildGlassCard({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: child,
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../core/constants.dart';
+import '../services/analytics_service.dart';
 
 class SettingsState {
   final int scrollDuration;
@@ -32,6 +33,8 @@ class SettingsState {
 }
 
 class SettingsNotifier extends Notifier<SettingsState> {
+  final _analytics = AnalyticsService();
+
   @override
   SettingsState build() {
     // Note: We'll read prefs from the provider
@@ -62,6 +65,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
       state = state.copyWith(scrollDuration: duration);
     }
     _syncToOverlay();
+
+    // Track analytics
+    _analytics.logEvent(
+      AnalyticsEvents.settingsChanged,
+      parameters: {'setting': 'scroll_duration', 'value': duration},
+    );
   }
 
   void updateRandomVariance(int variance) {
@@ -75,6 +84,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
       state = state.copyWith(randomVariance: variance);
     }
     _syncToOverlay();
+
+    // Track analytics
+    _analytics.logEvent(
+      AnalyticsEvents.settingsChanged,
+      parameters: {'setting': 'random_variance', 'value': variance},
+    );
   }
 
   void updateSleepTimer(int minutes) {
@@ -88,12 +103,27 @@ class SettingsNotifier extends Notifier<SettingsState> {
       state = state.copyWith(sleepTimerMinutes: minutes);
     }
     _syncToOverlay();
+
+    // Track analytics
+    _analytics.logEvent(
+      AnalyticsEvents.settingsChanged,
+      parameters: {'setting': 'sleep_timer', 'value': minutes},
+    );
+
+    if (minutes > 0) {
+      _analytics.logEvent(AnalyticsEvents.sleepTimerActivated);
+    }
   }
 
   void setAutoScrollEnabled(bool enabled) {
     final prefs = ref.read(sharedPreferencesProvider);
     prefs.setBool(AppConstants.keyIsAutoScrollEnabled, enabled);
     state = state.copyWith(isAutoScrollEnabled: enabled);
+
+    // Track analytics
+    _analytics.logEvent(
+      enabled ? AnalyticsEvents.serviceStarted : AnalyticsEvents.serviceStopped,
+    );
   }
 
   Future<void> _syncToOverlay() async {
