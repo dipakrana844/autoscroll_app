@@ -136,9 +136,15 @@ class AutoScrollService : AccessibilityService() {
     private fun notifyAppChange(isTarget: Boolean) {
         val intent = android.content.Intent(AutoScrollPlugin.ACTION_APP_CHANGED)
         intent.putExtra(AutoScrollPlugin.EXTRA_IS_TARGET_APP, isTarget)
+        intent.putExtra(AutoScrollPlugin.EXTRA_PACKAGE_NAME, lastPackageName)
+        
+        val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        val isMusicActive = audioManager.isMusicActive
+        intent.putExtra(AutoScrollPlugin.EXTRA_IS_MUSIC_ACTIVE, isMusicActive)
+
         intent.setPackage(packageName)
         sendBroadcast(intent)
-        Log.d(TAG, "Broadcast sent: isTarget=$isTarget (Current App: $lastPackageName)")
+        Log.d(TAG, "Broadcast sent: isTarget=$isTarget, pkg=$lastPackageName, music=$isMusicActive")
     }
 
     override fun onInterrupt() {

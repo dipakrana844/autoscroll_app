@@ -1,34 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'scroll_service.dart';
-
-@pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
-
-  if (service is AndroidServiceInstance) {
-    service.on('setAsForeground').listen((event) {
-      service.setAsForegroundService();
-    });
-
-    service.on('setAsBackground').listen((event) {
-      service.setAsBackgroundService();
-    });
-  }
-
-  service.on('stopService').listen((event) {
-    service.stopSelf();
-  });
-
-  // Listen for scroll commands from the overlay
-  service.on('trigger_scroll').listen((event) {
-    // Forward the command to the Main Isolate (UI Isolate)
-    // because that's where the native plugin is registered.
-    service.invoke('scroll_on_main');
-  });
-}
 
 class BackgroundServiceManager {
   static final BackgroundServiceManager _instance =
@@ -40,7 +12,7 @@ class BackgroundServiceManager {
 
   final FlutterBackgroundService _service = FlutterBackgroundService();
 
-  Future<void> initialize() async {
+  Future<void> initialize(Function(ServiceInstance) onStart) async {
     await _service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,

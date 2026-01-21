@@ -5,6 +5,7 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import '../providers/settings_provider.dart';
+import '../providers/attention_mode_provider.dart';
 import '../services/scroll_service.dart';
 import 'statistics_screen.dart';
 import 'widgets/common_widgets.dart';
@@ -400,6 +401,39 @@ class _MainScreenState extends ConsumerState<MainScreen>
               ),
             ],
           ),
+          const Divider(color: Colors.white10),
+          // AI Attention Mode
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'AI Attention Mode',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            subtitle: Text(
+              'Smart auto-scroll based on attention',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 10,
+              ),
+            ),
+            value: settings.isAIAttentionModeEnabled,
+            activeColor: Colors.blueAccent,
+            onChanged: (val) => notifier.setAIAttentionModeEnabled(val),
+          ),
+          if (settings.isAIAttentionModeEnabled)
+            TextButton.icon(
+              icon: const Icon(Icons.restore, size: 16, color: Colors.white70),
+              label: const Text(
+                "Reset Learning Model",
+                style: TextStyle(color: Colors.white70),
+              ),
+              onPressed: () {
+                ref.read(attentionModeProvider.notifier).resetLearning();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("AI Learning Reset")),
+                );
+              },
+            ),
         ],
       ),
     );

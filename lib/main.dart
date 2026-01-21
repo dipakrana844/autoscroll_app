@@ -9,6 +9,8 @@ import 'ui/overlay_screen.dart';
 import 'services/background_service_manager.dart';
 import 'services/analytics_service.dart';
 import 'services/preferences_service.dart';
+import 'services/attention_engine.dart';
+import 'providers/attention_mode_provider.dart';
 import 'core/app_theme.dart';
 
 @pragma("vm:entry-point")
@@ -35,41 +37,12 @@ void main() async {
   final preferencesService = PreferencesService();
   await preferencesService.initialize(prefs);
 
+  final attentionEngine = AttentionEngine();
+  await attentionEngine.initialize(prefs);
+
   // Track app opened
   analyticsService.logEvent(AnalyticsEvents.appOpened);
   preferencesService.updateLastActiveDate();
-
-  // Native Bridge: Listen for App Changes (Target App Detection)
-  const channel = MethodChannel('com.example.autoscroll/scroll');
-  channel.setMethodCallHandler((call) async {
-    if (call.method == "onAppChanged") {
-      final bool isTargetApp = call.arguments as bool;
-      debugPrint("App changed: isTargetApp = $isTargetApp");
-
-      if (isTargetApp) {
-        if (!(await FlutterOverlayWindow.isActive())) {
-          await FlutterOverlayWindow.showOverlay(
-            enableDrag: true,
-            overlayTitle: "AutoScroll Controls",
-            overlayContent: "Managing your Reels",
-            flag: OverlayFlag.defaultFlag,
-            alignment: OverlayAlignment.centerRight,
-            visibility: NotificationVisibility.visibilityPublic,
-            positionGravity: PositionGravity.right,
-            height: 800,
-            width: 200,
-          );
-          analyticsService.logEvent(AnalyticsEvents.overlayShown);
-        }
-      } else {
-        if (await FlutterOverlayWindow.isActive()) {
-          await FlutterOverlayWindow.closeOverlay();
-          analyticsService.logEvent(AnalyticsEvents.overlayHidden);
-        }
-      }
-    }
-    return null;
-  });
 
   runApp(
     ProviderScope(
@@ -88,7 +61,82 @@ class MyApp extends StatelessWidget {
       title: 'AutoScroll Pro',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const MainScreen(),
+      home: const NativeEventsListener(child: MainScreen()),
     );
+  }
+}
+
+class NativeEventsListener extends ConsumerStatefulWidget {
+  final Widget child;
+  const NativeEventsListener({super.key, required this.child});
+
+  @override
+  ConsumerState<NativeEventsListener> createState() =>
+      _NativeEventsListenerState();
+}
+
+class _NativeEventsListenerState extends ConsumerState<NativeEventsListener> {
+  static const _channel = MethodChannel('com.example.autoscroll/scroll');
+
+  @override
+  void initState() {
+    super.initState();
+    _channel.setMethodCallHandler(_handleMethodCall);
+  }
+
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    if (call.method == "onAppChanged") {
+      final args = call.arguments;
+      bool isTargetApp = false;
+      String packageName = "";
+      bool isMusicActive = false;
+
+      if (args is Map) {
+        isTargetApp = args['isTargetApp'] ?? false;
+        packageName = args['packageName'] ?? "";
+        isMusicActive = args['isMusicActive'] ?? false;
+      } else if (args is bool) {
+        // Fallback for backward compatibility
+        isTargetApp = args;
+      }
+
+      // Update Attention Mode Context
+      ref
+          .read(attentionModeProvider.notifier)
+          .updateContext(
+            packageName: packageName,
+            isAudioActive: isMusicActive,
+          );
+
+      final analytics = AnalyticsService(); // Singleton
+
+      if (isTargetApp) {
+        if (!(await FlutterOverlayWindow.isActive())) {
+          await FlutterOverlayWindow.showOverlay(
+            enableDrag: true,
+            overlayTitle: "AutoScroll Controls",
+            overlayContent: "Managing your Reels",
+            flag: OverlayFlag.defaultFlag,
+            alignment: OverlayAlignment.centerRight,
+            visibility: NotificationVisibility.visibilityPublic,
+            positionGravity: PositionGravity.right,
+            height: 800,
+            width: 200,
+          );
+          analytics.logEvent(AnalyticsEvents.overlayShown);
+        }
+      } else {
+        if (await FlutterOverlayWindow.isActive()) {
+          await FlutterOverlayWindow.closeOverlay();
+          analytics.logEvent(AnalyticsEvents.overlayHidden);
+        }
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }

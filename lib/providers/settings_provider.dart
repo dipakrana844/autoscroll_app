@@ -9,12 +9,14 @@ class SettingsState {
   final bool isAutoScrollEnabled;
   final int randomVariance;
   final int sleepTimerMinutes;
+  final bool isAIAttentionModeEnabled;
 
   SettingsState({
     required this.scrollDuration,
     required this.isAutoScrollEnabled,
     required this.randomVariance,
     required this.sleepTimerMinutes,
+    required this.isAIAttentionModeEnabled,
   });
 
   SettingsState copyWith({
@@ -22,12 +24,15 @@ class SettingsState {
     bool? isAutoScrollEnabled,
     int? randomVariance,
     int? sleepTimerMinutes,
+    bool? isAIAttentionModeEnabled,
   }) {
     return SettingsState(
       scrollDuration: scrollDuration ?? this.scrollDuration,
       isAutoScrollEnabled: isAutoScrollEnabled ?? this.isAutoScrollEnabled,
       randomVariance: randomVariance ?? this.randomVariance,
       sleepTimerMinutes: sleepTimerMinutes ?? this.sleepTimerMinutes,
+      isAIAttentionModeEnabled:
+          isAIAttentionModeEnabled ?? this.isAIAttentionModeEnabled,
     );
   }
 }
@@ -37,7 +42,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   @override
   SettingsState build() {
-    // Note: We'll read prefs from the provider
     final prefs = ref.watch(sharedPreferencesProvider);
     return SettingsState(
       scrollDuration:
@@ -51,6 +55,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
       sleepTimerMinutes:
           prefs.getInt(AppConstants.keySleepTimerMinutes) ??
           AppConstants.defaultSleepTimer,
+      isAIAttentionModeEnabled:
+          prefs.getBool(AppConstants.keyEnableAIAttentionMode) ?? false,
     );
   }
 
@@ -66,7 +72,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
     _syncToOverlay();
 
-    // Track analytics
     _analytics.logEvent(
       AnalyticsEvents.settingsChanged,
       parameters: {'setting': 'scroll_duration', 'value': duration},
@@ -85,7 +90,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
     _syncToOverlay();
 
-    // Track analytics
     _analytics.logEvent(
       AnalyticsEvents.settingsChanged,
       parameters: {'setting': 'random_variance', 'value': variance},
@@ -104,7 +108,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
     _syncToOverlay();
 
-    // Track analytics
     _analytics.logEvent(
       AnalyticsEvents.settingsChanged,
       parameters: {'setting': 'sleep_timer', 'value': minutes},
@@ -120,10 +123,24 @@ class SettingsNotifier extends Notifier<SettingsState> {
     prefs.setBool(AppConstants.keyIsAutoScrollEnabled, enabled);
     state = state.copyWith(isAutoScrollEnabled: enabled);
 
-    // Track analytics
     _analytics.logEvent(
       enabled ? AnalyticsEvents.serviceStarted : AnalyticsEvents.serviceStopped,
     );
+  }
+
+  void setAIAttentionModeEnabled(bool enabled) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setBool(AppConstants.keyEnableAIAttentionMode, enabled);
+    state = state.copyWith(isAIAttentionModeEnabled: enabled);
+    _syncToOverlay();
+
+    _analytics.logEvent(
+      AnalyticsEvents.settingsChanged,
+      parameters: {'setting': 'ai_attention_mode', 'value': enabled},
+    );
+    if (enabled) {
+      _analytics.logEvent(AnalyticsEvents.attentionModeEnabled);
+    }
   }
 
   Future<void> _syncToOverlay() async {
@@ -133,6 +150,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
           'scrollDuration': state.scrollDuration,
           'randomVariance': state.randomVariance,
           'sleepTimerMinutes': state.sleepTimerMinutes,
+          'isAIAttentionModeEnabled': state.isAIAttentionModeEnabled,
         });
       }
     } catch (e) {

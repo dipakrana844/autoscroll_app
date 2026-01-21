@@ -15,13 +15,23 @@ class AutoScrollPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     companion object {
         const val ACTION_APP_CHANGED = "com.example.autoscroll.APP_CHANGED"
         const val EXTRA_IS_TARGET_APP = "is_target_app"
+        const val EXTRA_PACKAGE_NAME = "package_name"
+        const val EXTRA_IS_MUSIC_ACTIVE = "is_music_active"
     }
 
     private val appChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_APP_CHANGED) {
                 val isTarget = intent.getBooleanExtra(EXTRA_IS_TARGET_APP, false)
-                channel?.invokeMethod("onAppChanged", isTarget)
+                val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: ""
+                val isMusicActive = intent.getBooleanExtra(EXTRA_IS_MUSIC_ACTIVE, false)
+                
+                val args = mapOf(
+                    "isTargetApp" to isTarget,
+                    "packageName" to packageName,
+                    "isMusicActive" to isMusicActive
+                )
+                channel?.invokeMethod("onAppChanged", args)
             }
         }
     }

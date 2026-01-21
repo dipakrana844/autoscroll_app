@@ -117,4 +117,8 @@ class AnalyticsEvents {
   static const String overlayShown = 'overlay_shown';
   static const String overlayHidden = 'overlay_hidden';
   static const String sleepTimerActivated = 'sleep_timer_activated';
+  static const String attentionModeEnabled = 'attention_mode_enabled';
+  static const String aiScrollDecision = 'ai_scroll_decision';
+  static const String userOverrideDetected = 'user_override_detected';
+  static const String learningUpdated = 'learning_updated';
 }

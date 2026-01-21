@@ -30,6 +30,10 @@ class _OverlayScreenState extends State<OverlayScreen> {
   final _analytics = AnalyticsService();
   final _prefsService = PreferencesService();
 
+  bool _isAIEnabled = false;
+  double _aiDelay = 10.0;
+  double _aiConfidence = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +50,17 @@ class _OverlayScreenState extends State<OverlayScreen> {
         }
         if (event.containsKey('sleepTimerMinutes')) {
           _sleepTimerMinutes = event['sleepTimerMinutes'] as int;
+        }
+        if (event.containsKey('isAIAttentionModeEnabled')) {
+          _isAIEnabled = event['isAIAttentionModeEnabled'] as bool;
+          needsUpdate = true;
+        }
+        if (event.containsKey('aiSuggestedDelay')) {
+          _aiDelay = (event['aiSuggestedDelay'] as num).toDouble();
+          needsUpdate = true;
+        }
+        if (event.containsKey('aiConfidence')) {
+          _aiConfidence = (event['aiConfidence'] as num).toDouble();
         }
 
         if (needsUpdate && !_isPlaying && !_isScrolling) {
@@ -74,6 +89,8 @@ class _OverlayScreenState extends State<OverlayScreen> {
         _sleepTimerMinutes =
             _prefs!.getInt(AppConstants.keySleepTimerMinutes) ??
             AppConstants.defaultSleepTimer;
+        _isAIEnabled =
+            _prefs!.getBool(AppConstants.keyEnableAIAttentionMode) ?? false;
 
         // If the timer isn't running, update the current display
         if (!_isPlaying && !_isScrolling) {
@@ -84,14 +101,20 @@ class _OverlayScreenState extends State<OverlayScreen> {
   }
 
   void _resetCountdown() {
+    int targetDuration = _baseDuration;
+
+    if (_isAIEnabled) {
+      targetDuration = _aiDelay.round();
+    }
+
     if (_randomVariance > 0) {
       final random = Random();
       // Variance range: [-variance, +variance]
       final variance =
           random.nextInt(_randomVariance * 2 + 1) - _randomVariance;
-      _countdown = max(3, _baseDuration + variance); // Minimum 3 seconds
+      _countdown = max(3, targetDuration + variance); // Minimum 3 seconds
     } else {
-      _countdown = _baseDuration;
+      _countdown = targetDuration;
     }
   }
 
@@ -109,7 +132,6 @@ class _OverlayScreenState extends State<OverlayScreen> {
         final elapsed = DateTime.now().difference(_startTime!);
         if (elapsed.inMinutes >= _sleepTimerMinutes) {
           _stopTimer();
-          // Optional: Show a toast or message that sleep timer triggered
           return;
         }
       }
@@ -142,6 +164,17 @@ class _OverlayScreenState extends State<OverlayScreen> {
 
       // Track analytics
       _analytics.logEvent(AnalyticsEvents.scrollTriggered);
+      if (_isAIEnabled) {
+        // Maybe Log AI specific events here or assume manual overrides will be detected by native service?
+        // Since Overlay is a separate engine, it can't easily call AttentionEngine.recordScroll.
+        // However, the main app's BackgroundServiceManager listens to 'trigger_scroll' via service.invoke('scroll_on_main')??
+        // Wait, 'trigger_scroll' event is sent to Background Service.
+        // Background Service receives it.
+        // In `BackgroundServiceManager.dart`:
+        // service.on('trigger_scroll').listen((event) { service.invoke('scroll_on_main'); });
+        // AND `listenForScrollOnMain` is in `main.dart` (or initialized there via serviceManager).
+        // So in `main.dart`, we should intercept 'scroll_on_main' or similar to update Attention Engine.
+      }
       _prefsService.incrementScrollCount();
     } catch (e) {
       debugPrint("Overlay Scroll Error: $e");
@@ -156,7 +189,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
         if (_isPlaying) {
           _resetCountdown();
         } else {
-          _countdown = _baseDuration;
+          _countdown = _isAIEnabled ? _aiDelay.round() : _baseDuration;
         }
         _isScrolling = false;
       });
@@ -189,7 +222,40 @@ class _OverlayScreenState extends State<OverlayScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.drag_handle, color: Colors.white54, size: 20),
-                const SizedBox(height: 10),
+                const SizedBox(height: 5),
+                if (_isAIEnabled) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blueAccent, width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.blueAccent,
+                          size: 10,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "${(_aiConfidence * 100).toInt()}%",
+                          style: const TextStyle(
+                            color: Colors.blueAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                ],
                 _buildCountdownIndicator(),
                 const SizedBox(height: 15),
                 _buildControlButtons(),
@@ -219,7 +285,9 @@ class _OverlayScreenState extends State<OverlayScreen> {
         border: Border.all(
           color: _isScrolling
               ? Colors.blue
-              : (_isPlaying ? Colors.orange : Colors.white24),
+              : (_isAIEnabled
+                    ? Colors.blueAccent
+                    : (_isPlaying ? Colors.orange : Colors.white24)),
           width: 3,
         ),
         boxShadow: _isScrolling
@@ -252,7 +320,9 @@ class _OverlayScreenState extends State<OverlayScreen> {
           iconSize: 32,
           icon: Icon(
             _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-            color: _isPlaying ? Colors.orange : Colors.green,
+            color: _isPlaying
+                ? (_isAIEnabled ? Colors.blueAccent : Colors.orange)
+                : Colors.green,
           ),
           onPressed: () {
             if (_isPlaying) {
