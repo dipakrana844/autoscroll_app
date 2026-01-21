@@ -1,8 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'providers/settings_provider.dart';
 import 'ui/main_screen.dart';
 import 'ui/overlay_screen.dart';
@@ -21,6 +23,32 @@ void overlayMain() {
   );
 }
 
+@pragma('vm:entry-point')
+void onStart(ServiceInstance service) async {
+  DartPluginRegistrant.ensureInitialized();
+
+  if (service is AndroidServiceInstance) {
+    service.on('setAsForeground').listen((event) {
+      service.setAsForegroundService();
+    });
+
+    service.on('setAsBackground').listen((event) {
+      service.setAsBackgroundService();
+    });
+  }
+
+  service.on('stopService').listen((event) {
+    service.stopSelf();
+  });
+
+  // Listen for scroll commands from the overlay
+  service.on('trigger_scroll').listen((event) {
+    // Forward the command to the Main Isolate (UI Isolate)
+    // because that's where the native plugin is registered.
+    service.invoke('scroll_on_main');
+  });
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,7 +56,7 @@ void main() async {
 
   // Initialize services
   final serviceManager = BackgroundServiceManager();
-  await serviceManager.initialize();
+  await serviceManager.initialize(onStart);
   serviceManager.listenForScrollOnMain();
 
   final analyticsService = AnalyticsService();
