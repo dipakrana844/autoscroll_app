@@ -12,10 +12,10 @@ class BackgroundServiceManager {
 
   final FlutterBackgroundService _service = FlutterBackgroundService();
 
-  Future<void> initialize(Function(ServiceInstance) onStart) async {
+  Future<void> initialize(Function(ServiceInstance) callback) async {
     await _service.configure(
       androidConfiguration: AndroidConfiguration(
-        onStart: onStart,
+        onStart: callback,
         autoStart: false,
         isForegroundMode: true,
         notificationChannelId: 'autoscroll_service_v2',

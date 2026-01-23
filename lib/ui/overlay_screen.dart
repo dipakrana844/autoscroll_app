@@ -7,7 +7,6 @@ import '../core/constants.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../services/analytics_service.dart';
-import '../services/preferences_service.dart';
 
 class OverlayScreen extends StatefulWidget {
   const OverlayScreen({super.key});
@@ -26,9 +25,6 @@ class _OverlayScreenState extends State<OverlayScreen> {
   bool _isPlaying = false;
   Timer? _timer;
   SharedPreferences? _prefs;
-
-  final _analytics = AnalyticsService();
-  final _prefsService = PreferencesService();
 
   bool _isAIEnabled = false;
   double _aiDelay = 10.0;
@@ -159,23 +155,21 @@ class _OverlayScreenState extends State<OverlayScreen> {
     setState(() => _isScrolling = true);
 
     try {
-      FlutterBackgroundService().invoke('trigger_scroll');
+      final service = FlutterBackgroundService();
+      service.invoke('trigger_scroll');
+
+      // Delegate logging to the main/background isolate to ensure consistency
+      service.invoke('log_event', {'name': AnalyticsEvents.scrollTriggered});
+
       debugPrint("Overlay: Triggered scroll via Background Service bridge");
 
-      // Track analytics
-      _analytics.logEvent(AnalyticsEvents.scrollTriggered);
-      if (_isAIEnabled) {
-        // Maybe Log AI specific events here or assume manual overrides will be detected by native service?
-        // Since Overlay is a separate engine, it can't easily call AttentionEngine.recordScroll.
-        // However, the main app's BackgroundServiceManager listens to 'trigger_scroll' via service.invoke('scroll_on_main')??
-        // Wait, 'trigger_scroll' event is sent to Background Service.
-        // Background Service receives it.
-        // In `BackgroundServiceManager.dart`:
-        // service.on('trigger_scroll').listen((event) { service.invoke('scroll_on_main'); });
-        // AND `listenForScrollOnMain` is in `main.dart` (or initialized there via serviceManager).
-        // So in `main.dart`, we should intercept 'scroll_on_main' or similar to update Attention Engine.
-      }
-      _prefsService.incrementScrollCount();
+      // We handled scroll count in the main isolate now via the 'log_event' or 'scroll_on_main' handler
+      // to avoid race conditions on SharedPreferences.
+      // But if we want to update the UI immediately/locally we might need to keep it,
+      // OR better: rely on the stream update.
+      // For now, let's keep local increment if it's just for stats, but really
+      // we should move this logic to the main app event handler too.
+      // _prefsService.incrementScrollCount(); // Handled in main isolate now
     } catch (e) {
       debugPrint("Overlay Scroll Error: $e");
     }

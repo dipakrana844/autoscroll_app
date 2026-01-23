@@ -22,9 +22,17 @@ class AnalyticsService {
     Map<String, dynamic>? parameters,
   }) async {
     try {
+      final now = DateTime.now();
+
+      // Debounce logic: Prevent duplicate events within 500ms
+      if (_shouldThrottle(eventName, now)) {
+        return const Success(null);
+      }
+      _lastLogged[eventName] = now;
+
       final event = AnalyticsEvent(
         name: eventName,
-        timestamp: DateTime.now(),
+        timestamp: now,
         parameters: parameters ?? {},
       );
 
@@ -44,6 +52,14 @@ class AnalyticsService {
     } catch (e) {
       return Failure('Failed to log event: $eventName', e as Exception);
     }
+  }
+
+  final Map<String, DateTime> _lastLogged = {};
+
+  bool _shouldThrottle(String eventName, DateTime now) {
+    if (!_lastLogged.containsKey(eventName)) return false;
+    final lastTime = _lastLogged[eventName]!;
+    return now.difference(lastTime).inMilliseconds < 500;
   }
 
   /// Get event history
@@ -97,10 +113,35 @@ class AnalyticsEvent {
 
   factory AnalyticsEvent.fromJson(String json) {
     final parts = json.split('|');
+    Map<String, dynamic> params = {};
+    if (parts.length > 2) {
+      try {
+        final paramString = parts.sublist(2).join('|');
+        // Simple parsing for key:value map string representation
+        // For production, use actual JSON encoding.
+        // Assuming params.toString() was used which produces {key: value}
+        String cleanParams = paramString.trim();
+        if (cleanParams.startsWith('{') && cleanParams.endsWith('}')) {
+          cleanParams = cleanParams.substring(1, cleanParams.length - 1);
+        }
+        if (cleanParams.isNotEmpty) {
+          final entries = cleanParams.split(',');
+          for (var entry in entries) {
+            final kv = entry.split(':');
+            if (kv.length == 2) {
+              params[kv[0].trim()] = kv[1].trim();
+            }
+          }
+        }
+      } catch (e) {
+        // Parsing failed, ignore params
+      }
+    }
+
     return AnalyticsEvent(
       name: parts[0],
       timestamp: DateTime.parse(parts[1]),
-      parameters: {}, // Simplified for now
+      parameters: params,
     );
   }
 }

@@ -2,9 +2,17 @@ package com.example.autoscroll_app
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Path
-import android.view.accessibility.AccessibilityEvent
+import android.media.AudioManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.view.accessibility.AccessibilityEvent
 
 class AutoScrollService : AccessibilityService() {
 
@@ -14,46 +22,29 @@ class AutoScrollService : AccessibilityService() {
         var instance: AutoScrollService? = null
     }
 
-    private val scrollReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+    // =========================
+    // Scroll Receiver
+    // =========================
+    private val scrollReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_SCROLL) {
                 performScroll()
             }
         }
     }
 
-    override fun onCreate() {
-        super.onCreate()
-        instance = this
-        val filter = android.content.IntentFilter(ACTION_SCROLL)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(scrollReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(scrollReceiver, filter)
-        }
-    }
+    // =========================
+    // Audio
+    // =========================
+    private lateinit var audioManager: AudioManager
+    private val audioHandler = Handler(Looper.getMainLooper())
 
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(scrollReceiver)
-        if (instance == this) {
-            instance = null
-        }
-    }
-
-    override fun onServiceConnected() {
-        super.onServiceConnected()
-        Log.d(TAG, "Accessibility Service Connected")
-        instance = this
-    }
-
-    override fun onUnbind(intent: android.content.Intent?): Boolean {
-        Log.d(TAG, "Accessibility Service Unbound")
-        if (instance == this) {
-            instance = null
-        }
-        return super.onUnbind(intent)
-    }
+    // =========================
+    // State
+    // =========================
+    private var isAudioActiveCached = false
+    private var lastTargetAppState = false
+    private var lastPackageName = ""
 
     private val targetPackages = setOf(
         "com.instagram.android",
@@ -70,121 +61,160 @@ class AutoScrollService : AccessibilityService() {
         "com.microsoft.emmx"
     )
 
-    private var lastTargetAppState: Boolean = false
-    private var lastPackageName: String = ""
+    // =========================
+    // Lifecycle
+    // =========================
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
 
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        val filter = IntentFilter(ACTION_SCROLL)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(scrollReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(scrollReceiver, filter)
+        }
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        Log.d(TAG, "Accessibility Service Connected")
+        instance = this
+
+        isAudioActiveCached = audioManager.isMusicActive
+        startAudioPolling()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(scrollReceiver)
+        stopAudioPolling()
+        instance = null
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        stopAudioPolling()
+        instance = null
+        return super.onUnbind(intent)
+    }
+
+    // =========================
+    // Accessibility
+    // =========================
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
         val eventPackageName = event.packageName?.toString() ?: ""
-        
-        // 1. Ignore events from our own package to prevent self-hiding
-        if (eventPackageName == this.packageName) return
+        if (eventPackageName == packageName) return
 
-        // 2. Only respond to major window changes (App/Activity switches)
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            
-            // Get the package name of the actual active window
-            val currentPackageName = rootInActiveWindow?.packageName?.toString() ?: eventPackageName
-            if (currentPackageName.isEmpty()) return
+            val currentPackage =
+                rootInActiveWindow?.packageName?.toString() ?: eventPackageName
 
-            // 3. Prevent logic from running if the package hasn't changed (prevents spam)
-            if (currentPackageName == lastPackageName) return
-            lastPackageName = currentPackageName
+            if (currentPackage.isEmpty() || currentPackage == lastPackageName) return
+            lastPackageName = currentPackage
 
-            val isTarget = checkIsTargetApp(currentPackageName)
-            val isIgnored = isInputMethodApp(currentPackageName)
+            val isTarget = checkIsTargetApp(currentPackage)
+            val isIgnored = isInputMethodApp(currentPackage)
 
-            Log.d(TAG, "App Switch -> Active: $currentPackageName, IsTarget: $isTarget, IsIgnored: $isIgnored")
+            Log.d(TAG, "App Switch → $currentPackage | target=$isTarget")
 
             if (isTarget) {
-                // If we entered a target app, ensure overlay is shown
-                if (!lastTargetAppState) {
-                    lastTargetAppState = true
-                    notifyAppChange(true)
-                }
+                lastTargetAppState = true
+                notifyStateChange(true)
             } else if (!isIgnored) {
-                // FORCE hide whenever we move to a different, non-target app (like Chrome/Launcher/SystemUI)
-                // This now properly handles Home screen and Recents menu by closing the overlay.
                 lastTargetAppState = false
-                notifyAppChange(false)
+                notifyStateChange(false)
             }
         }
-    }
-
-    private fun isInputMethodApp(packageName: String): Boolean {
-        val lower = packageName.lowercase()
-        return ignoredPackages.contains(packageName) || 
-               lower.contains("inputmethod") || 
-               lower.contains("keyboard")
-    }
-
-    private fun checkIsTargetApp(packageName: String): Boolean {
-        if (packageName.isEmpty()) return false
-        
-        val lower = packageName.lowercase()
-        // Direct target package check
-        if (targetPackages.contains(packageName)) return true
-        
-        // Keyword check for variants/modified versions
-        return lower.contains("instagram") || 
-               lower.contains("youtube") || 
-               lower.contains("tiktok") ||
-               lower.contains("reels")
-    }
-
-    private fun notifyAppChange(isTarget: Boolean) {
-        val intent = android.content.Intent(AutoScrollPlugin.ACTION_APP_CHANGED)
-        intent.putExtra(AutoScrollPlugin.EXTRA_IS_TARGET_APP, isTarget)
-        intent.putExtra(AutoScrollPlugin.EXTRA_PACKAGE_NAME, lastPackageName)
-        
-        val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-        val isMusicActive = audioManager.isMusicActive
-        intent.putExtra(AutoScrollPlugin.EXTRA_IS_MUSIC_ACTIVE, isMusicActive)
-
-        intent.setPackage(packageName)
-        sendBroadcast(intent)
-        Log.d(TAG, "Broadcast sent: isTarget=$isTarget, pkg=$lastPackageName, music=$isMusicActive")
     }
 
     override fun onInterrupt() {
-        Log.d(TAG, "Accessibility Service Interrupted")
+        Log.d(TAG, "Accessibility interrupted")
     }
 
-    fun performScroll() {
-        Log.d(TAG, "performScroll initiated")
-        
-        val displayMetrics = resources.displayMetrics
-        val width = displayMetrics.widthPixels
-        val height = displayMetrics.heightPixels
-
-        // Optimized swipe path for Short-form video apps (Reels/Shorts)
-        val path = Path()
-        val startX = width * 0.5f
-        val startY = height * 0.8f // Start near bottom (but not off-screen)
-        val endY = height * 0.2f   // End near top
-
-        path.moveTo(startX, startY)
-        // Add a slight curve or multi-point line if needed, but straight is usually best for scrolls
-        path.lineTo(startX, endY)
-
-        val gestureBuilder = GestureDescription.Builder()
-        // 350ms is a good balance between "too fast" and "too slow"
-        gestureBuilder.addStroke(GestureDescription.StrokeDescription(path, 10, 350))
-        
-        val dispatched = dispatchGesture(gestureBuilder.build(), object : GestureResultCallback() {
-            override fun onCompleted(gestureDescription: GestureDescription?) {
-                super.onCompleted(gestureDescription)
-                Log.d(TAG, "Gesture execution successfully completed")
-            }
-            override fun onCancelled(gestureDescription: GestureDescription?) {
-                super.onCancelled(gestureDescription)
-                Log.e(TAG, "Gesture execution cancelled")
-            }
-        }, null)
-
-        if (!dispatched) {
-            Log.e(TAG, "Critical: Failed to dispatch gesture")
+    // =========================
+    // Audio polling (SAFE)
+    // =========================
+    private val audioPollRunnable = object : Runnable {
+        override fun run() {
+            updateAudioState()
+            audioHandler.postDelayed(this, 800)
         }
+    }
+
+    private fun startAudioPolling() {
+        audioHandler.post(audioPollRunnable)
+    }
+
+    private fun stopAudioPolling() {
+        audioHandler.removeCallbacks(audioPollRunnable)
+    }
+
+    private fun updateAudioState() {
+        val active = audioManager.isMusicActive
+        if (active != isAudioActiveCached) {
+            isAudioActiveCached = active
+            Log.i(TAG, "Audio active = $active")
+
+            if (lastTargetAppState) {
+                notifyStateChange(true)
+            }
+        }
+    }
+
+    // =========================
+    // Helpers
+    // =========================
+    private fun isInputMethodApp(packageName: String): Boolean {
+        val lower = packageName.lowercase()
+        return ignoredPackages.contains(packageName) ||
+                lower.contains("inputmethod") ||
+                lower.contains("keyboard")
+    }
+
+    private fun checkIsTargetApp(packageName: String): Boolean {
+        val lower = packageName.lowercase()
+        return targetPackages.contains(packageName) ||
+                lower.contains("instagram") ||
+                lower.contains("youtube") ||
+                lower.contains("tiktok") ||
+                lower.contains("reels")
+    }
+
+    private fun notifyStateChange(isTarget: Boolean) {
+        val intent = Intent(AutoScrollPlugin.ACTION_APP_CHANGED)
+        intent.putExtra(AutoScrollPlugin.EXTRA_IS_TARGET_APP, isTarget)
+        intent.putExtra(AutoScrollPlugin.EXTRA_PACKAGE_NAME, lastPackageName)
+        intent.putExtra(
+            AutoScrollPlugin.EXTRA_IS_MUSIC_ACTIVE,
+            isAudioActiveCached
+        )
+        intent.setPackage(packageName)
+        sendBroadcast(intent)
+
+        Log.d(
+            TAG,
+            "Broadcast → target=$isTarget pkg=$lastPackageName audio=$isAudioActiveCached"
+        )
+    }
+
+    // =========================
+    // Scroll
+    // =========================
+    fun performScroll() {
+        val metrics = resources.displayMetrics
+        val path = Path().apply {
+            moveTo(metrics.widthPixels * 0.5f, metrics.heightPixels * 0.8f)
+            lineTo(metrics.widthPixels * 0.5f, metrics.heightPixels * 0.2f)
+        }
+
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 10, 350))
+            .build()
+
+        dispatchGesture(gesture, null, null)
     }
 }

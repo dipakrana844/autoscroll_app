@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'providers/settings_provider.dart';
 import 'ui/main_screen.dart';
 import 'ui/overlay_screen.dart';
@@ -25,6 +26,7 @@ void overlayMain() {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  debugPrint("Background Isolate: onStart triggered");
   DartPluginRegistrant.ensureInitialized();
 
   if (service is AndroidServiceInstance) {
@@ -44,8 +46,14 @@ void onStart(ServiceInstance service) async {
   // Listen for scroll commands from the overlay
   service.on('trigger_scroll').listen((event) {
     // Forward the command to the Main Isolate (UI Isolate)
-    // because that's where the native plugin is registered.
     service.invoke('scroll_on_main');
+  });
+
+  // Forward analytics events from Overlay to Main Isolate
+  service.on('log_event').listen((event) {
+    if (event != null) {
+      service.invoke('log_event_on_main', event);
+    }
   });
 }
 
@@ -105,11 +113,47 @@ class NativeEventsListener extends ConsumerStatefulWidget {
 
 class _NativeEventsListenerState extends ConsumerState<NativeEventsListener> {
   static const _channel = MethodChannel('com.example.autoscroll/scroll');
+  DateTime _lastScrollTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _channel.setMethodCallHandler(_handleMethodCall);
+    _setupBackgroundListeners();
+  }
+
+  void _setupBackgroundListeners() {
+    final service = FlutterBackgroundService();
+
+    // Listen for scroll events triggered by Overlay
+    service.on('scroll_on_main').listen((event) {
+      final now = DateTime.now();
+      final duration = now.difference(_lastScrollTime);
+      _lastScrollTime = now;
+
+      // Update AI Attention Model
+      ref
+          .read(attentionModeProvider.notifier)
+          .recordScroll(success: true, duration: duration);
+
+      // Increment Scroll Count locally
+      PreferencesService().incrementScrollCount();
+    });
+
+    // Listen for analytics events from Overlay
+    service.on('log_event_on_main').listen((event) {
+      if (event != null && event is Map) {
+        final name = event['name'] as String?;
+        final params = event['parameters'] as Map<dynamic, dynamic>?;
+
+        if (name != null) {
+          final cleanParams = params?.map(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+          AnalyticsService().logEvent(name, parameters: cleanParams);
+        }
+      }
+    });
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
