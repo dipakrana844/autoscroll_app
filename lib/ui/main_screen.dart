@@ -434,6 +434,24 @@ class _MainScreenState extends ConsumerState<MainScreen>
                 );
               },
             ),
+          const Divider(color: Colors.white10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Show Scroll Preview',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            subtitle: Text(
+              'Display predicted scroll delays in overlay',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 10,
+              ),
+            ),
+            value: settings.showScrollPreview,
+            activeColor: Colors.blueAccent,
+            onChanged: (val) => notifier.setShowScrollPreview(val),
+          ),
         ],
       ),
     );

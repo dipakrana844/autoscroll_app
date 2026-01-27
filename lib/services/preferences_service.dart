@@ -65,6 +65,19 @@ class PreferencesService {
     return _prefs?.getInt('total_usage_time_seconds') ?? 0;
   }
 
+  Future<void> setSessionStart(DateTime time) async {
+    await _prefs?.setString('last_session_start', time.toIso8601String());
+  }
+
+  DateTime? getSessionStart() {
+    final start = _prefs?.getString('last_session_start');
+    return start != null ? DateTime.tryParse(start) : null;
+  }
+
+  Future<void> clearSessionStart() async {
+    await _prefs?.remove('last_session_start');
+  }
+
   // First Launch
   Future<void> setFirstLaunchComplete() async {
     await _prefs?.setBool('first_launch_complete', true);

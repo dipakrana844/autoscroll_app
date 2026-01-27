@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/result.dart';
 
 /// Analytics Event Tracker for monitoring user behavior
-/// This is production-ready and can be extended to send to Firebase Analytics, Mixpanel, etc.
+/// Optimized with batched SharedPreferences writes.
 class AnalyticsService {
   static final AnalyticsService _instance = AnalyticsService._internal();
   factory AnalyticsService() => _instance;
@@ -10,10 +11,19 @@ class AnalyticsService {
 
   final List<AnalyticsEvent> _eventLog = [];
   SharedPreferences? _prefs;
+  Timer? _batchTimer;
+  bool _needsPersist = false;
 
   Future<void> initialize(SharedPreferences prefs) async {
     _prefs = prefs;
     await _loadEventLog();
+
+    // Setup periodic batch write every 10 seconds if needed
+    _batchTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (_needsPersist) {
+        _saveEventLog();
+      }
+    });
   }
 
   /// Log an event
@@ -43,10 +53,12 @@ class AnalyticsService {
         _eventLog.removeAt(0);
       }
 
-      await _saveEventLog();
+      _needsPersist = true;
 
-      // In production, send to analytics service here
-      // await _sendToAnalyticsService(event);
+      // If we have many events, force a write
+      if (_eventLog.length % 10 == 0) {
+        await _saveEventLog();
+      }
 
       return const Success(null);
     } catch (e) {
@@ -64,20 +76,26 @@ class AnalyticsService {
 
   /// Get event history
   List<AnalyticsEvent> getEventHistory({int limit = 50}) {
-    return _eventLog.take(limit).toList();
+    return _eventLog.reversed.take(limit).toList();
   }
 
   /// Clear event history
   Future<void> clearHistory() async {
     _eventLog.clear();
+    _needsPersist = false;
     await _prefs?.remove('analytics_event_log');
   }
 
   Future<void> _saveEventLog() async {
-    if (_prefs == null) return;
+    if (_prefs == null || !_needsPersist) return;
 
-    final eventStrings = _eventLog.map((e) => e.toJson()).toList();
-    await _prefs!.setStringList('analytics_event_log', eventStrings);
+    try {
+      final eventStrings = _eventLog.map((e) => e.toJson()).toList();
+      await _prefs!.setStringList('analytics_event_log', eventStrings);
+      _needsPersist = false;
+    } catch (e) {
+      // Failed to save, will try again next batch
+    }
   }
 
   Future<void> _loadEventLog() async {
@@ -94,6 +112,13 @@ class AnalyticsService {
       }
     }
   }
+
+  void dispose() {
+    _batchTimer?.cancel();
+    if (_needsPersist) {
+      _saveEventLog();
+    }
+  }
 }
 
 class AnalyticsEvent {
@@ -101,7 +126,7 @@ class AnalyticsEvent {
   final DateTime timestamp;
   final Map<String, dynamic> parameters;
 
-  AnalyticsEvent({
+  const AnalyticsEvent({
     required this.name,
     required this.timestamp,
     required this.parameters,
@@ -117,9 +142,6 @@ class AnalyticsEvent {
     if (parts.length > 2) {
       try {
         final paramString = parts.sublist(2).join('|');
-        // Simple parsing for key:value map string representation
-        // For production, use actual JSON encoding.
-        // Assuming params.toString() was used which produces {key: value}
         String cleanParams = paramString.trim();
         if (cleanParams.startsWith('{') && cleanParams.endsWith('}')) {
           cleanParams = cleanParams.substring(1, cleanParams.length - 1);

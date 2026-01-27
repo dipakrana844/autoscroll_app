@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/preferences_service.dart';
 import '../services/analytics_service.dart';
+import '../providers/statistics_provider.dart';
 import 'widgets/common_widgets.dart';
 
 class StatisticsScreen extends ConsumerWidget {
@@ -9,13 +10,8 @@ class StatisticsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prefsService = PreferencesService();
-    final analyticsService = AnalyticsService();
-
-    final scrollCount = prefsService.getScrollCount();
-    final usageTimeSeconds = prefsService.getTotalUsageTime();
-    final lastActive = prefsService.getLastActiveDate();
-    final eventHistory = analyticsService.getEventHistory(limit: 20);
+    final stats = ref.watch(statisticsProvider);
+    final statsNotifier = ref.read(statisticsProvider.notifier);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -41,14 +37,14 @@ class StatisticsScreen extends ConsumerWidget {
               children: [
                 const SectionTitle(title: 'Overview'),
                 const SizedBox(height: 12),
-                _buildStatsGrid(scrollCount, usageTimeSeconds),
+                _buildStatsGrid(stats),
                 const SizedBox(height: 24),
                 const SectionTitle(title: 'Last Active'),
                 const SizedBox(height: 12),
                 GlassCard(
                   child: Text(
-                    lastActive != null
-                        ? _formatDateTime(lastActive)
+                    stats.lastActive != null
+                        ? _formatDateTime(stats.lastActive!)
                         : 'No activity yet',
                     style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
@@ -56,14 +52,14 @@ class StatisticsScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 const SectionTitle(title: 'Recent Activity'),
                 const SizedBox(height: 12),
-                _buildEventHistory(eventHistory),
+                _buildEventHistory(stats.events),
                 const SizedBox(height: 24),
                 Center(
                   child: TextButton.icon(
                     onPressed: () async {
                       final confirmed = await _showClearConfirmation(context);
                       if (confirmed == true) {
-                        await analyticsService.clearHistory();
+                        await statsNotifier.clearHistory();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -91,7 +87,7 @@ class StatisticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsGrid(int scrollCount, int usageTimeSeconds) {
+  Widget _buildStatsGrid(StatisticsState stats) {
     return Row(
       children: [
         Expanded(
@@ -101,7 +97,7 @@ class StatisticsScreen extends ConsumerWidget {
                 const Icon(Icons.touch_app, color: Colors.blueAccent, size: 40),
                 const SizedBox(height: 8),
                 Text(
-                  '$scrollCount',
+                  '${stats.totalScrollCount}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 28,
@@ -125,10 +121,10 @@ class StatisticsScreen extends ConsumerWidget {
                 const Icon(Icons.timer, color: Colors.orangeAccent, size: 40),
                 const SizedBox(height: 8),
                 Text(
-                  _formatDuration(usageTimeSeconds),
+                  stats.formattedUsageTime,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 28,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -217,17 +213,10 @@ class StatisticsScreen extends ConsumerWidget {
     return eventName
         .split('_')
         .map((word) {
+          if (word.isEmpty) return '';
           return word[0].toUpperCase() + word.substring(1);
         })
         .join(' ');
-  }
-
-  String _formatDuration(int seconds) {
-    if (seconds < 60) return '${seconds}s';
-    final minutes = seconds ~/ 60;
-    if (minutes < 60) return '${minutes}m';
-    final hours = minutes ~/ 60;
-    return '${hours}h';
   }
 
   String _formatDateTime(DateTime dateTime) {

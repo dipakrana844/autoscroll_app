@@ -10,6 +10,7 @@ class AttentionModeState {
   final double confidenceScore;
   final String currentPackage;
   final bool isAudioActive;
+  final List<double> predictedDelays;
 
   AttentionModeState({
     required this.isEnabled,
@@ -17,6 +18,7 @@ class AttentionModeState {
     required this.confidenceScore,
     required this.currentPackage,
     required this.isAudioActive,
+    required this.predictedDelays,
   });
 
   AttentionModeState copyWith({
@@ -25,6 +27,7 @@ class AttentionModeState {
     double? confidenceScore,
     String? currentPackage,
     bool? isAudioActive,
+    List<double>? predictedDelays,
   }) {
     return AttentionModeState(
       isEnabled: isEnabled ?? this.isEnabled,
@@ -33,6 +36,7 @@ class AttentionModeState {
       confidenceScore: confidenceScore ?? this.confidenceScore,
       currentPackage: currentPackage ?? this.currentPackage,
       isAudioActive: isAudioActive ?? this.isAudioActive,
+      predictedDelays: predictedDelays ?? this.predictedDelays,
     );
   }
 }
@@ -50,6 +54,7 @@ class AttentionModeNotifier extends Notifier<AttentionModeState> {
       confidenceScore: 0.0,
       currentPackage: '',
       isAudioActive: false,
+      predictedDelays: const [],
     );
   }
 
@@ -71,12 +76,17 @@ class AttentionModeNotifier extends Notifier<AttentionModeState> {
     // Recalculate immediately when context changes
     final newDelay = _engine.getRecommendedDelay();
     final confidence = _engine.getConfidenceScore();
+    final predictions = _engine
+        .getPredictedDelays(5)
+        .map((r) => r.nextDelay.inMilliseconds / 1000.0)
+        .toList();
 
     state = state.copyWith(
       currentPackage: packageName,
       isAudioActive: isAudioActive,
       currentSuggestedDelay: newDelay,
       confidenceScore: confidence,
+      predictedDelays: predictions,
     );
 
     _syncToOverlay();
@@ -116,10 +126,15 @@ class AttentionModeNotifier extends Notifier<AttentionModeState> {
     // Recalculate for next time
     final newDelay = _engine.getRecommendedDelay();
     final confidence = _engine.getConfidenceScore();
+    final predictions = _engine
+        .getPredictedDelays(5)
+        .map((r) => r.nextDelay.inMilliseconds / 1000.0)
+        .toList();
 
     state = state.copyWith(
       currentSuggestedDelay: newDelay,
       confidenceScore: confidence,
+      predictedDelays: predictions,
     );
 
     _syncToOverlay();
@@ -142,6 +157,7 @@ class AttentionModeNotifier extends Notifier<AttentionModeState> {
         await FlutterOverlayWindow.shareData({
           'aiSuggestedDelay': state.currentSuggestedDelay,
           'aiConfidence': state.confidenceScore,
+          'predictedDelays': state.predictedDelays,
           // We don't send isEnabled because settings provider sends it.
           // But main sync might be slower, so we can send here too if needed.
         });

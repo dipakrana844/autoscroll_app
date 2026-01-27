@@ -1,11 +1,11 @@
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'providers/settings_provider.dart';
 import 'ui/main_screen.dart';
 import 'ui/overlay_screen.dart';
@@ -29,6 +29,21 @@ void onStart(ServiceInstance service) async {
   debugPrint("Background Isolate: onStart triggered");
   DartPluginRegistrant.ensureInitialized();
 
+  final prefs = await SharedPreferences.getInstance();
+  final prefService = PreferencesService();
+  await prefService.initialize(prefs);
+
+  // Record start time if not already in a session
+  final startTime = DateTime.now();
+  await prefService.setSessionStart(startTime);
+
+  // Setup periodic tracking to ensure data is saved even if killed
+  Timer.periodic(const Duration(minutes: 1), (timer) async {
+    // If the isolate is alive, the service is effectively running
+    await prefService.updateTotalUsageTime(60);
+    await prefService.updateLastActiveDate();
+  });
+
   if (service is AndroidServiceInstance) {
     service.on('setAsForeground').listen((event) {
       service.setAsForegroundService();
@@ -39,7 +54,19 @@ void onStart(ServiceInstance service) async {
     });
   }
 
-  service.on('stopService').listen((event) {
+  service.on('stopService').listen((event) async {
+    // Calculate final duration for this session
+    final start = prefService.getSessionStart();
+    if (start != null) {
+      final sessionDuration = DateTime.now().difference(start).inSeconds;
+      // Since we update every minute, we only add the remaining seconds
+      // to avoid double counting too much, or just overwrite with true total if we prefers accuracy
+      // Actually, a simpler way is: total = total + (now - start) - (already_added_by_timer)
+      // But simpler: just use the timer for persistence and do a final update.
+      final remainingSeconds = sessionDuration % 60;
+      await prefService.updateTotalUsageTime(remainingSeconds);
+    }
+    await prefService.clearSessionStart();
     service.stopSelf();
   });
 

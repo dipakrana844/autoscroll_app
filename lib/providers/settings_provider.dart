@@ -10,6 +10,7 @@ class SettingsState {
   final int randomVariance;
   final int sleepTimerMinutes;
   final bool isAIAttentionModeEnabled;
+  final bool showScrollPreview;
 
   SettingsState({
     required this.scrollDuration,
@@ -17,6 +18,7 @@ class SettingsState {
     required this.randomVariance,
     required this.sleepTimerMinutes,
     required this.isAIAttentionModeEnabled,
+    required this.showScrollPreview,
   });
 
   SettingsState copyWith({
@@ -25,6 +27,7 @@ class SettingsState {
     int? randomVariance,
     int? sleepTimerMinutes,
     bool? isAIAttentionModeEnabled,
+    bool? showScrollPreview,
   }) {
     return SettingsState(
       scrollDuration: scrollDuration ?? this.scrollDuration,
@@ -33,6 +36,7 @@ class SettingsState {
       sleepTimerMinutes: sleepTimerMinutes ?? this.sleepTimerMinutes,
       isAIAttentionModeEnabled:
           isAIAttentionModeEnabled ?? this.isAIAttentionModeEnabled,
+      showScrollPreview: showScrollPreview ?? this.showScrollPreview,
     );
   }
 }
@@ -57,6 +61,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
           AppConstants.defaultSleepTimer,
       isAIAttentionModeEnabled:
           prefs.getBool(AppConstants.keyEnableAIAttentionMode) ?? false,
+      showScrollPreview:
+          prefs.getBool(AppConstants.keyShowScrollPreview) ??
+          AppConstants.defaultShowScrollPreview,
     );
   }
 
@@ -143,6 +150,18 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
   }
 
+  void setShowScrollPreview(bool enabled) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setBool(AppConstants.keyShowScrollPreview, enabled);
+    state = state.copyWith(showScrollPreview: enabled);
+    _syncToOverlay();
+
+    _analytics.logEvent(
+      AnalyticsEvents.settingsChanged,
+      parameters: {'setting': 'show_scroll_preview', 'value': enabled},
+    );
+  }
+
   Future<void> _syncToOverlay() async {
     try {
       if (await FlutterOverlayWindow.isActive()) {
@@ -151,6 +170,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
           'randomVariance': state.randomVariance,
           'sleepTimerMinutes': state.sleepTimerMinutes,
           'isAIAttentionModeEnabled': state.isAIAttentionModeEnabled,
+          'showScrollPreview': state.showScrollPreview,
         });
       }
     } catch (e) {
